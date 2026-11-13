@@ -1,6 +1,6 @@
 // End-to-end smoke test of the site in headless Chrome: the home page, and the playground's two
 // engines at a desktop and a phone size, with every console error, exception and failed request
-// counted as a failure.
+// of the page counted as a failure. The workers report through the page.
 //
 //   node tests/smoke.mjs --dir _site                      a built site, served here
 //   node tests/smoke.mjs --url https://scrutate.github.io  the live site
@@ -21,7 +21,7 @@ function serve(root) {
   const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
     let file = path.join(root, rel);
-    if (!file.startsWith(path.resolve(root))) return res.writeHead(403).end();
+    if (file !== root && !file.startsWith(root + path.sep)) return res.writeHead(403).end();
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
     if (!fs.existsSync(file)) return res.writeHead(404).end("not found");
     res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
@@ -78,7 +78,7 @@ async function checks(b, base, view, ok, fail) {
       encoding: r.headers.get('content-encoding'), length: Number(r.headers.get('content-length')) }))`);
     if (head.status !== 200 || head.type !== "application/wasm") throw new Error(`scrutate.wasm answers ${head.status} ${head.type}; streaming compile needs 200 application/wasm`);
     const meta = await p.eval("fetch('engine.json').then((r) => (r.ok ? r.json() : null))");
-    if (!meta || !(meta.bytes > 0) || !/^[0-9a-f]{40}$/.test(meta.scrutate) || !/^(v\d\S*|main)$/.test(meta.ref || "")) {
+    if (!meta || !(meta.bytes > 0) || !/^[0-9a-f]{40}$/.test(meta.scrutate) || !/^[0-9a-f]{40}$/.test(meta.site) || !/^(v\d\S*|main)$/.test(meta.ref || "")) {
       throw new Error(`engine.json is missing or malformed: ${JSON.stringify(meta)}`);
     }
     if (!head.encoding && head.length && head.length !== meta.bytes) throw new Error(`engine.json says ${meta.bytes} bytes, scrutate.wasm is ${head.length}`);
@@ -94,6 +94,17 @@ async function checks(b, base, view, ok, fail) {
   await run("callers follow the call graph", async (p) => {
     await p.go(`${base}/playground/?c=callers&q=Index.open`);
     return settle(p, /\d+ callers? in/);
+  });
+
+  // Each command reads its own JSON fields, so each one is run once.
+  await run("symbol, refs, callees and similar answer", async (p) => {
+    await p.go(`${base}/playground/?c=symbol&q=Index.open`);
+    const notes = [await settle(p, /\d+ definitions? in/)];
+    for (const [c, q, re] of [["refs", "query_words", /\d+ uses? of \d+ definitions?/], ["callees", "Index.open", /\d+ in the repository/], ["similar", "FuzzyMatcher.new", /\d+ similar definitions? in/]]) {
+      await p.eval(`(() => { document.querySelector('.tab[data-cmd="${c}"]').click(); const q = document.querySelector('#q'); q.value = ${JSON.stringify(q)}; q.dispatchEvent(new Event('input')); })()`);
+      notes.push(await settle(p, re));
+    }
+    return notes.join("; ");
   });
 
   await run("a bad regex shows the engine's message", async (p) => {

@@ -2,7 +2,7 @@
 
 The website of [Scrutate](https://github.com/scrutate/scrutate), https://scrutate.github.io: a
 home page and a playground that runs scrutate in the browser. Plain HTML, CSS and JavaScript
-modules, no build step and no npm dependencies.
+modules, no JavaScript build step and no npm dependencies.
 
 ## How it is published
 
@@ -17,17 +17,19 @@ modules, no build step and no npm dependencies.
    publishes it only if every check passes;
 5. tests the live site in Chrome after the deploy.
 
-The hourly run builds and publishes only when the scrutate it picks differs from the one the site
-serves, so a new scrutate release reaches the playground within about an hour; the rest of the
-time it only tests the live site. A pull request runs steps 1 to 4 and publishes nothing.
+The hourly run builds and publishes only when the scrutate it picks, or this repository's `main`,
+differs from what the site serves (`engine.json` names both), so a new scrutate release reaches
+the playground within about an hour. The rest of the time it only checks that the live pages and
+the engine answer, without Chrome, since each Chrome check downloads the 85 MB engine again. A pull
+request runs steps 1 to 4 and publishes nothing.
 
 The engine is never committed: an 85 MB binary would grow the history with every scrutate
 version, and building it here ties each deploy to one scrutate commit, which `engine.json` names.
 
 ### By hand
 
-- **Run a particular scrutate**, for a rollback or a test: Actions, "pages", "Run workflow", and
-  give a release tag such as `v0.1.0`, or `main`. The next hourly run returns to the newest
+- **Run a particular scrutate**, for a rollback or a test: Actions, "pages", "Run workflow" on
+  `main`, and give a release tag such as `v0.1.0`, or `main`. The next hourly run returns to the newest
   release, so a rollback that must last is a new scrutate release.
 - **The hourly run stopped**: GitHub turns off scheduled workflows in a public repository with no
   activity for 60 days and emails the owner. Turn it back on under Actions, "pages",
@@ -45,7 +47,7 @@ You need a scrutate build for `wasm32-wasip1`. In a scrutate checkout, with
 rustup target add wasm32-wasip1
 CC_wasm32_wasip1=$SDK/bin/clang AR_wasm32_wasip1=$SDK/bin/llvm-ar \
 CFLAGS_wasm32_wasip1="--sysroot=$SDK/share/wasi-sysroot" \
-cargo build --release -p scrutate --bin scrutate --target wasm32-wasip1 --no-default-features
+cargo build --release -p scrutate --bin scrutate --target wasm32-wasip1 --no-default-features --locked
 ```
 
 Then, in this repository, assemble the site and test it (Node 22.4 or later, and Chrome):
@@ -72,7 +74,7 @@ Rust's `canonicalize` uses).
 - `index.html`, `app.js`: the page; `worker.js`: the engine; `load.js`: the sample, GitHub
   repositories and local folders; `list.js`: the result list; `code.js`: the file view.
 - `vendor/`: `browser_wasi_shim` and the [lezer](https://github.com/lezer-parser) parsers and
-  highlighter, the npm packages' `dist/index.js` files unchanged, each with its licence.
+  highlighter, the npm packages' `dist` files unchanged, each with its licence.
   `SOURCE.txt` in each folder names the versions.
 - `samples/scrutate-src.json`: scrutate's own source at one commit, written by
   `python3 tools/make_sample.py ../scrutate <commit>`. It stays fixed while the engine follows

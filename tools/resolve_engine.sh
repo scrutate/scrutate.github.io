@@ -11,21 +11,33 @@ set -eu
 repo=scrutate/scrutate
 want=${1:-}
 if [ -z "$want" ]; then
-  # 404 (with the error body on stdout) when nothing is released yet; drafts and prereleases are
-  # never "latest"
-  if tag=$(gh api "repos/$repo/releases/latest" --jq .tag_name 2>/dev/null) && [ -n "$tag" ]; then
+  # 404 when nothing is released yet (drafts and prereleases are never "latest"); any other
+  # failure stops here, so a GitHub outage never publishes main in place of the release
+  err=$(mktemp)
+  trap 'rm -f "$err"' EXIT
+  if tag=$(gh api "repos/$repo/releases/latest" --jq .tag_name 2>"$err"); then
     want=$tag
-  else
+  elif grep -q "(HTTP 404)" "$err"; then
     want=main
+  else
+    echo "cannot read scrutate's latest release: $(cat "$err")" >&2
+    exit 1
   fi
 fi
+case $want in
+  *[!A-Za-z0-9._-]* | "")
+    echo "the engine must be a release tag (v...) or main, not '$want'" >&2
+    exit 2
+    ;;
+esac
 case $want in
   main)
     commit=$(gh api "repos/$repo/actions/workflows/ci.yml/runs?branch=main&event=push&status=success&per_page=1" \
       --jq '.workflow_runs[0].head_sha // empty')
     ;;
   v[0-9]*)
-    # a release's tagged commit passed ci.yml: release.yml runs it before it publishes
+    # a release's tagged commit passed ci.yml, since release.yml runs it before it publishes; any
+    # other v tag is the choice of whoever started the run
     commit=$(gh api "repos/$repo/commits/$want" --jq .sha)
     ;;
   *)

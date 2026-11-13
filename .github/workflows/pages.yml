@@ -4,8 +4,8 @@
 # a binary that size in git warns at 50 MB, adds its size to the history on every new version and
 # cannot be traced to its source. tools/resolve_engine.sh picks the scrutate to build: the newest
 # release, or before the first release the newest main commit whose CI passed. The hourly run
-# rebuilds only when that changed, so a new scrutate version reaches the playground within about
-# an hour, and otherwise only tests the live site.
+# rebuilds only when that or this repository's main changed, so a new scrutate version reaches the
+# playground within about an hour, and otherwise only checks that the live site answers.
 # Nothing is published unless tests/smoke.mjs passes in Chrome on the exact files to publish;
 # after a deploy the same test runs on the live site. Every action is pinned to a commit, with
 # its tag in the comment.
@@ -33,7 +33,7 @@ defaults:
     shell: bash
 env:
   SITE_URL: https://scrutate.github.io
-  WASI_SDK: wasi-sdk-34.0-x86_64-linux
+  WASI_SDK_VERSION: "34"
   WASI_SDK_SHA256: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
 jobs:
   plan:
@@ -53,11 +53,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           WANT: ${{ inputs.engine }}
         run: |
-          read -r commit ref <<< "$(sh tools/resolve_engine.sh "$WANT")"
+          picked=$(sh tools/resolve_engine.sh "$WANT")
+          read -r commit ref <<< "$picked"
           # a query string the CDN has not seen, so this reads what the site serves now
-          live=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID" | jq -r '.scrutate // empty' || true)
+          served=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID" || true)
+          live=$(jq -r '.scrutate // empty' <<< "$served" 2>/dev/null || true)
+          live_site=$(jq -r '.site // empty' <<< "$served" 2>/dev/null || true)
+          # the site commit too: a push run that waited behind this one may have been cancelled
           build=true
-          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$live" = "$commit" ]; then build=false; fi
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$live" = "$commit" ] && [ "$live_site" = "$GITHUB_SHA" ]; then build=false; fi
           { echo "commit=$commit"; echo "ref=$ref"; echo "build=$build"; } >> "$GITHUB_OUTPUT"
           echo "scrutate $ref at $commit; the site serves ${live:-no engine}; build: $build" >> "$GITHUB_STEP_SUMMARY"
 
@@ -78,10 +82,10 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: wasi-sdk, the C compiler for SQLite and the tree-sitter grammars
         run: |
-          curl -sSfL --retry 5 -o "$RUNNER_TEMP/wasi-sdk.tar.gz" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/$WASI_SDK.tar.gz"
+          curl -sSfL --retry 5 -o "$RUNNER_TEMP/wasi-sdk.tar.gz" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-$WASI_SDK_VERSION/wasi-sdk-$WASI_SDK_VERSION.0-x86_64-linux.tar.gz"
           echo "$WASI_SDK_SHA256  $RUNNER_TEMP/wasi-sdk.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/wasi-sdk.tar.gz" -C "$RUNNER_TEMP"
-          sdk="$RUNNER_TEMP/$WASI_SDK"
+          sdk="$RUNNER_TEMP/wasi-sdk-$WASI_SDK_VERSION.0-x86_64-linux"
           {
             echo "CC_wasm32_wasip1=$sdk/bin/clang"
             echo "AR_wasm32_wasip1=$sdk/bin/llvm-ar"
@@ -145,7 +149,7 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   live:
-    name: the live site in Chrome
+    name: the live site
     needs: [plan, deploy]
     # after a deploy, and on the hourly run that found nothing new to build
     if: always() && needs.plan.result == 'success' && (needs.deploy.result == 'success' || (needs.plan.outputs.build == 'false' && github.event_name == 'schedule'))
@@ -169,7 +173,14 @@ jobs:
           done
           echo "after 10 minutes the site serves ${live:-no engine}, not $COMMIT" >&2
           exit 1
+      # headers only: each Chrome check downloads the 85 MB engine again, too much every hour
+      - name: the pages and the engine answer
+        run: |
+          for page in / /playground/ /playground/app.js; do curl -fsS -o /dev/null "$SITE_URL$page?run=$GITHUB_RUN_ID"; done
+          type=$(curl -fsSI "$SITE_URL/playground/scrutate.wasm?run=$GITHUB_RUN_ID" | tr -d '\r' | awk -F': ' 'tolower($1) == "content-type" { print $2 }')
+          [ "$type" = application/wasm ] || { echo "scrutate.wasm is served as '$type', not application/wasm" >&2; exit 1; }
       - name: the live site in Chrome
+        if: needs.deploy.result == 'success'
         env:
           CHROME_BIN: /usr/bin/google-chrome
           SMOKE_NO_SANDBOX: "1"
