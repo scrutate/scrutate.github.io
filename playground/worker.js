@@ -30,13 +30,11 @@ function load(entries) {
   flat = new Map();
   cache.clear();
   const top = new Map();
-  let bytes = 0;
   for (const [path, data] of entries) {
     const body = typeof data === "string" ? enc.encode(data) : new Uint8Array(data);
     const parts = path.split("/").filter(Boolean);
     if (!parts.length) continue;
     flat.set(parts.join("/"), body);
-    bytes += body.byteLength;
     let dir = top;
     for (const p of parts.slice(0, -1)) {
       if (!(dir.get(p) instanceof Map)) dir.set(p, new Map());
@@ -47,7 +45,6 @@ function load(entries) {
   // Directory sets each child's parent when it is built, so build from the leaves up
   const build = (m) => new Map([...m].map(([k, v]) => [k, v instanceof Map ? new Directory(build(v)) : v]));
   tree = build(top);
-  return { files: flat.size, bytes };
 }
 
 function entry(path) {
@@ -184,10 +181,9 @@ function doc(r) {
 async function handle(m) {
   if (m.type === "engine") {
     engine = m.module || (await compile(m.url));
-    postMessage({ type: "engine" });
     for (const w of waiting.splice(0)) dispatch(w);
   } else if (m.type === "files") {
-    postMessage({ type: "files", gen: m.gen, ...load(m.files) });
+    load(m.files);
   } else if (m.type === "run") {
     if (!engine) return waiting.push(m);
     const r = exec(m.id, m.args, m.live);

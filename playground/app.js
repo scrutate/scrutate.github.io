@@ -156,7 +156,7 @@ class Engine {
 const A = new Engine();
 const B = new Engine();
 // File reads and snippets go to the grep worker unless it is busy and the index one is not.
-const fileWorker = () => (A.idle || !B.idle ? A : B);
+const fileWorker = () => (!A.dead && (A.idle || !B.idle) ? A : B);
 
 async function fetchEngine() {
   try {
@@ -292,8 +292,8 @@ async function useSource(next, job) {
   if (mine > 1) B.start();
   const transfer = data.files.map((f) => f[1]).filter((b) => b instanceof ArrayBuffer);
   // B gets a copy first: the transfer to A detaches the buffers.
-  B.send({ type: "files", files: data.files, gen: mine });
-  A.send({ type: "files", files: data.files, gen: mine }, transfer);
+  B.send({ type: "files", files: data.files });
+  A.send({ type: "files", files: data.files }, transfer);
   clearInterval(ixTimer);
   Object.assign(IX, { state: "none", error: "", stats: null });
   paintIndexState();
@@ -320,7 +320,7 @@ let ixTimer = 0;
 
 async function ensureIndex() {
   if (IX.state !== "none" || !module || !files.paths.length) return;
-  const mine = gen;
+  const mine = tree;
   Object.assign(IX, { state: "building", t0: performance.now(), done: 0, total: files.paths.length, phase: "files", error: "" });
   clearInterval(ixTimer);
   ixTimer = setInterval(paintIndexState, 100);
@@ -334,12 +334,12 @@ async function ensureIndex() {
       if (t) Object.assign(IX, { phase: "text", done: +t[1], total: +t[2] });
       else if (a) Object.assign(IX, { phase: "files", done: +a[1], total: +a[2] });
     });
-    if (gen !== mine) return;
+    if (tree !== mine) return;
     if (r.code !== 0) throw new Error(r.stderr.replace(/\r/g, "\n").split("\n").filter((l) => l.trim() && !l.startsWith("[scrutate]")).join("\n") || `exit code ${r.code}`);
     IX.ms = r.ms;
     IX.summary = r.stdout.trim();
     const s = await B.call({ type: "run", args: ["stats", "--root", ROOT] });
-    if (gen !== mine) return;
+    if (tree !== mine) return;
     try {
       IX.stats = JSON.parse(s.stdout);
     } catch {
@@ -347,11 +347,11 @@ async function ensureIndex() {
     }
     IX.state = "ready";
   } catch (e) {
-    if (gen !== mine) return;
+    if (tree !== mine) return;
     IX.state = "failed";
     IX.error = e.message;
   } finally {
-    if (gen === mine) clearInterval(ixTimer);
+    if (tree === mine) clearInterval(ixTimer);
   }
   paintIndexState();
   if (CMDS[S.c].eng === "B") go();
@@ -468,13 +468,13 @@ async function go() {
   }
   lane.busy = true;
   busyDot();
-  const key = JSON.stringify(sp.args) + gen;
-  const mine = gen;
+  const key = JSON.stringify(sp.args) + tree;
+  const mine = tree;
   try {
     const r = await (sp.eng === "A" ? A : B).call({ type: "run", args: sp.args, parse: sp.parse });
-    if (mine === gen && JSON.stringify(spec().args) + gen === key) await show(sp, r);
+    if (mine === tree && JSON.stringify(spec().args) + tree === key) await show(sp, r);
   } catch (e) {
-    if (mine === gen && e.message !== "stopped") showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>Reload the page to start it again.</p>`);
+    if (mine === tree && e.message !== "stopped") showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>Reload the page to start it again.</p>`);
   } finally {
     lane.busy = false;
     busyDot();
