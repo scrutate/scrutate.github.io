@@ -34,6 +34,9 @@ version, and building it here ties each deploy to one scrutate commit, which `en
 - **The hourly run stopped**: GitHub turns off scheduled workflows in a public repository with no
   activity for 60 days and emails the owner. Turn it back on under Actions, "pages",
   "Enable workflow". Pushes to `main` publish either way.
+- **A scrutate release fails the site's tests**: nothing is published, and every hourly run builds
+  it again and fails the same way until a newer release, a run by hand that picks another
+  scrutate, or a fix pushed here.
 - **Action versions**: every `uses:` is pinned to a commit with its tag in a comment; update the
   hash and the tag together.
 

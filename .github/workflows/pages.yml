@@ -63,7 +63,7 @@ jobs:
           build=true
           if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$live" = "$commit" ] && [ "$live_site" = "$GITHUB_SHA" ]; then build=false; fi
           { echo "commit=$commit"; echo "ref=$ref"; echo "build=$build"; } >> "$GITHUB_OUTPUT"
-          echo "scrutate $ref at $commit; the site serves ${live:-no engine}; build: $build" >> "$GITHUB_STEP_SUMMARY"
+          echo "scrutate $ref at $commit; the site serves ${live:-no engine} with pages ${live_site:-unknown}; build: $build" >> "$GITHUB_STEP_SUMMARY"
 
   engine:
     name: scrutate ${{ needs.plan.outputs.ref }} compiled to wasm32-wasip1

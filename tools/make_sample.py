@@ -13,12 +13,19 @@ PARTS = ["crates", "vendor", "tools"]
 OUT = Path(__file__).resolve().parent.parent / "playground" / "samples" / "scrutate-src.json"
 
 
+def git(repo, *args):
+    r = subprocess.run(["git", "-C", repo, *args], capture_output=True)
+    if r.returncode:
+        sys.exit(f"git {args[0]} failed: {r.stderr.decode(errors='replace').strip()}")
+    return r.stdout
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit("usage: python3 tools/make_sample.py SCRUTATE_CHECKOUT COMMIT")
     repo, commit = sys.argv[1], sys.argv[2]
-    sha = subprocess.run(["git", "-C", repo, "rev-parse", "--short", commit], capture_output=True, text=True, check=True).stdout.strip()
-    tar = subprocess.run(["git", "-C", repo, "archive", commit, *PARTS], capture_output=True, check=True).stdout
+    sha = git(repo, "rev-parse", "--short", commit).decode().strip()
+    tar = git(repo, "archive", commit, *PARTS)
     files = []
     with tarfile.open(fileobj=io.BytesIO(tar)) as t:
         for m in t.getmembers():

@@ -60,7 +60,7 @@ async function checks(b, base, view, ok, fail) {
   const statsText = (p) => p.eval(`${STATS}.textContent`);
   // Wait for the stats line to report a result, and fail at once with its text if it reports an error.
   const settle = async (p, re) => {
-    await p.until(`new RegExp(${JSON.stringify(re.source)}).test(${STATS}.textContent) || ${STATS}.classList.contains('err')`, ENGINE_MS);
+    await p.until(`new RegExp(${JSON.stringify(re.source)}).test(${STATS}.textContent) || ${STATS}.classList.contains('err') || /^Nothing found/.test(${STATS}.textContent)`, ENGINE_MS);
     const text = (await statsText(p)).trim();
     if (!re.test(text)) throw new Error(`the page says: ${text}`);
     return text;

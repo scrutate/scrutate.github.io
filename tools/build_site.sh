@@ -20,6 +20,7 @@ case $ref in
 esac
 [ -s "$wasm" ] || { echo "no engine at $wasm" >&2; exit 2; }
 here=$(cd "$(dirname "$0")/.." && pwd)
+site=$(git -C "$here" rev-parse HEAD)
 # OUT is deleted first, so only a new folder, an empty one or an earlier build is accepted
 if [ -e "$out" ] && { [ ! -d "$out" ] || [ -n "$(ls -A "$out")" ]; } && [ ! -f "$out/playground/engine.json" ]; then
   echo "OUT exists and is not an earlier build; give an empty or new folder" >&2
@@ -30,6 +31,5 @@ mkdir -p "$out"
 cp -R "$here/index.html" "$here/robots.txt" "$here/sitemap.xml" "$here/assets" "$here/playground" "$out/"
 cp "$wasm" "$out/playground/scrutate.wasm"
 bytes=$(wc -c < "$wasm" | tr -d ' ')
-site=$(git -C "$here" rev-parse HEAD)
 printf '{"scrutate":"%s","ref":"%s","bytes":%s,"site":"%s"}\n' "$commit" "$ref" "$bytes" "$site" > "$out/playground/engine.json"
 echo "$out: site with scrutate $ref at $commit ($bytes bytes)"
