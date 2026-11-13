@@ -93,7 +93,11 @@ const STEPS = [
 // Without storage the tour could not remember a skip, so it only starts from the button.
 function seen() {
   try {
-    return localStorage.getItem(KEY) !== null;
+    if (localStorage.getItem(KEY) !== null) return true;
+    // Some browsers read storage but refuse writes, which would bring the tour back on every visit.
+    localStorage.setItem(KEY, "");
+    localStorage.removeItem(KEY);
+    return false;
   } catch {
     return true;
   }
@@ -168,9 +172,24 @@ export function initTour(app) {
   let painted = "";
   let returnTo = null;
   let moving = 0;
+  let idle = 0;
+  let listen = null;
+  let before = null;
+  let intro = "";
 
   const setGot = (html) => {
     if (html !== gotHTML) got.innerHTML = gotHTML = html;
+  };
+  // The answer is read out once, after the step; the progress lines in between are not.
+  const answer = (html) => {
+    setGot(html);
+    $("#tour-live").textContent = `${intro} ${got.textContent}`.trim();
+  };
+  // Drawn every frame while the spotlight moves; at rest, a look every quarter second or at once on a scroll or resize.
+  const wake = () => {
+    if (!open || raf) return;
+    clearTimeout(idle);
+    raf = requestAnimationFrame(frame);
   };
   // While a step waits for its answer, the card says what the page says: the index building, or the engine loading.
   const watch = new MutationObserver(() => waiting && setGot(said()));
@@ -208,7 +227,7 @@ export function initTour(app) {
   }
 
   function frame(now) {
-    raf = requestAnimationFrame(frame);
+    raf = 0;
     const s = steps[at];
     const p = box($(s.at));
     const goal = { holes: merge([p, ...s.show.map((q) => box($(q)))].filter(Boolean).map((r) => grow(r))), ring: p && grow(p) };
@@ -230,6 +249,8 @@ export function initTour(app) {
       spot = to;
       card.style.transform = `translate(${Math.round(to.x)}px, ${Math.round(to.y)}px)`;
     }
+    if (from) raf = requestAnimationFrame(frame);
+    else idle = setTimeout(wake, 250);
   }
 
   async function go(i, first) {
@@ -245,7 +266,8 @@ export function initTour(app) {
     nextBtn.textContent = i === n - 1 ? "Start searching" : "Next";
     if (!card.contains(document.activeElement) || document.activeElement.hidden) nextBtn.focus({ preventScroll: true });
     // The first step is read out as the dialog takes focus.
-    $("#tour-live").textContent = first ? "" : `Step ${i + 1} of ${n}: ${s.title}. ${$("#tour-p").textContent}`;
+    intro = first ? "" : `Step ${i + 1} of ${n}: ${s.title}. ${$("#tour-p").textContent}`;
+    $("#tour-live").textContent = intro;
     card.classList.remove("in");
     void card.offsetWidth;
     card.classList.add("in");
@@ -256,19 +278,31 @@ export function initTour(app) {
       clearTimeout(moving);
       moving = setTimeout(() => card.classList.remove("move"), MOVE_MS);
     }
-    // On a phone the page scrolls: bring the lit area to the top, so the answer shows above the card.
-    const lit = [s.at, ...s.show].map((q) => box($(q))).filter(Boolean);
-    if (lit.length) scrollTo({ top: Math.max(0, Math.min(...lit.map((r) => r.y)) + scrollY - 12), behavior: reduce.matches ? "auto" : "smooth" });
+    wake();
     waiting = !!s.c;
+    let done = null;
+    let ac = null;
     if (s.c) {
       setGot('<span class="dim">Running</span>');
-      const done = new Promise((ok) => document.addEventListener("scrutate:shown", ok, { once: true }));
+      listen?.abort();
+      ac = listen = new AbortController();
+      done = new Promise((ok) => {
+        for (const type of ["scrutate:shown", "scrutate:failed"]) document.addEventListener(type, () => ok(type), { once: true, signal: ac.signal });
+      });
       app.run(s.c, s.ex);
-      await done;
+    }
+    // On a phone the page scrolls: bring the lit area to the top, so the answer shows above the card.
+    // Measured after the run, which shows the controls this step points at.
+    const lit = [s.at, ...s.show].map((q) => box($(q))).filter(Boolean);
+    if (lit.length) scrollTo({ top: Math.max(0, Math.min(...lit.map((r) => r.y)) + scrollY - 12), behavior: reduce.matches ? "auto" : "smooth" });
+    if (done) {
+      const how = await done;
+      ac.abort();
       if (mine !== seq) return;
       waiting = false;
+      if (how === "scrutate:failed") return answer(`<span class="dim">${esc($("#msg h2")?.textContent || $("#stats").textContent)}</span>`);
     }
-    setGot(s.got(s.ex));
+    answer(s.got(s.ex));
   }
 
   function onKey(e) {
@@ -300,7 +334,7 @@ export function initTour(app) {
   // A click on the dim area only closes the tour; one in a lit area also reaches the page. A click,
   // not a press, so a finger can still scroll the page.
   function onClick(e) {
-    if (!card.contains(e.target)) end("skipped");
+    if (!card.contains(e.target)) end("skipped", true);
   }
 
   function next() {
@@ -314,28 +348,35 @@ export function initTour(app) {
     open = true;
     drawn = from = spot = null;
     returnTo = document.activeElement;
+    before = app.save();
     root.hidden = false;
     card.classList.remove("move");
     addEventListener("keydown", onKey, true);
     addEventListener("click", onClick, true);
+    addEventListener("scroll", wake, { capture: true, passive: true });
+    addEventListener("resize", wake);
     watch.observe($("#stats"), { childList: true, characterData: true, subtree: true });
     go(0, true);
-    raf = requestAnimationFrame((now) => {
-      frame(now);
-      root.classList.add("on");
-    });
+    requestAnimationFrame(() => root.classList.add("on"));
   }
 
-  function end(how) {
+  function end(how, byClick = false) {
     if (!open) return;
     open = false;
     waiting = false;
     seq++;
     cancelAnimationFrame(raf);
+    clearTimeout(idle);
+    raf = 0;
+    listen?.abort();
     removeEventListener("keydown", onKey, true);
     removeEventListener("click", onClick, true);
+    removeEventListener("scroll", wake, { capture: true });
+    removeEventListener("resize", wake);
     watch.disconnect();
     remember(how);
+    // Skip gives back the search the tour replaced; a click into the page keeps what the page shows.
+    if (how === "skipped" && !byClick) app.restore(before);
     root.classList.remove("on");
     setTimeout(() => {
       if (!open) root.hidden = true;
@@ -343,7 +384,10 @@ export function initTour(app) {
     if (how === "done") {
       $("#q").focus();
       $("#q").select();
-    } else if (returnTo && returnTo !== document.body && returnTo.isConnected) returnTo.focus({ preventScroll: true });
+    } else if (returnTo && returnTo !== document.body && returnTo.isConnected && (document.activeElement === document.body || card.contains(document.activeElement))) {
+      // A click that put the focus somewhere in the page leaves it there.
+      returnTo.focus({ preventScroll: true });
+    }
   }
 
   card.addEventListener("click", (e) => {

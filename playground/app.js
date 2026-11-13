@@ -373,7 +373,9 @@ function paintIndexPanel() {
   if (IX.state === "failed") {
     // A worker that died (out of memory, most often) has lost its copy of the files.
     const again = B.dead ? "<p>The index worker stopped. Load the code again, or reload the page, to try again.</p>" : "";
-    return showMsg("bad", "The index did not build", `<pre>${esc(IX.error)}</pre><p>Engine A still works on this code.</p>${again}<div class="row"><button class="btn" type="button" data-cmd="grep">Use grep</button>${B.dead ? "" : '<button class="btn" type="button" data-do="reindex">Try again</button>'}</div>`);
+    showMsg("bad", "The index did not build", `<pre>${esc(IX.error)}</pre><p>Engine A still works on this code.</p>${again}<div class="row"><button class="btn" type="button" data-cmd="grep">Use grep</button>${B.dead ? "" : '<button class="btn" type="button" data-do="reindex">Try again</button>'}</div>`);
+    document.dispatchEvent(new Event("scrutate:failed"));
+    return;
   }
   if (IX.state === "none") {
     return showMsg("", "The index is not built yet", `<p>Engine B answers from an index of this code. Building it reads every file once, in this tab, and takes a few seconds for a small repository.</p><div class="row"><button class="btn main" type="button" data-do="reindex">Build the index</button></div>`);
@@ -482,7 +484,10 @@ async function go() {
       document.dispatchEvent(new Event("scrutate:shown"));
     }
   } catch (e) {
-    if (mine === tree && e.message !== "stopped") showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>${sp.eng === "B" ? "Load the code again, or reload the page" : "Reload the page"} to start it again.</p>`);
+    if (mine === tree && e.message !== "stopped") {
+      showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>${sp.eng === "B" ? "Load the code again, or reload the page" : "Reload the page"} to start it again.</p>`);
+      document.dispatchEvent(new Event("scrutate:failed"));
+    }
   } finally {
     lane.busy = false;
     busyDot();
@@ -1333,6 +1338,12 @@ initTour({
   run(c, ex) {
     S.c = c;
     useExample(ex);
+  },
+  save: () => ({ ...S }),
+  restore(s) {
+    Object.assign(S, s);
+    paintControls();
+    schedule(true);
   },
 });
 paintBoot();

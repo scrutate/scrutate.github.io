@@ -65,8 +65,8 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   node tests/smoke.mjs --dir /tmp/site
 ```
 
-`--dir` serves the folder on a free local port. A run takes about 40 seconds and ends with
-`16 passed, 0 failed`; any failure prints the page's own message and exits 1.
+`--dir` serves the folder on a free local port. A run takes about 50 seconds and ends with
+`18 passed, 0 failed`; any failure prints the page's own message and exits 1.
 `node --test tests/*.test.mjs` runs the unit tests, which need no engine and no browser.
 `node tests/smoke.mjs --url https://scrutate.github.io` tests the live site the same way. To look
 at the site, serve the assembled folder with any static server, for example
@@ -97,9 +97,11 @@ and which of `app.js`'s examples it runs, so a step stays true when the sample c
 whose example the loaded code lacks is left out. It starts once, on a first visit to the bare
 playground link, after the first result shows. A link with a search in it never starts it, and
 neither does a visit after it was skipped or finished, which `localStorage` keeps under
-`scrutate-tour`; "Take the tour" in the header starts it again. `app.js` gives it two hooks, its
-examples and a way to run one, and fires `scrutate:shown` on `document` each time a result is on
-the page.
+`scrutate-tour`; "Take the tour" in the header starts it again. Skip and Esc give back the search
+the tour replaced; a click into the page ends the tour and keeps what the page shows. `app.js` gives
+it its examples, a way to run one, and a way to save and restore the search. It fires
+`scrutate:shown` on `document` each time a result is on the page, and `scrutate:failed` when the
+engine stops or the index does not build, so a step never waits for ever.
 
 The images in `assets/` are copies of `docs/assets/` in the scrutate repository, where
 `tools/gen_assets.py` writes them; copy them again when they change there.

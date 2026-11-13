@@ -131,6 +131,16 @@ async function checks(b, base, view, ok, fail) {
     return text;
   });
 
+  // The card and its spotlight have stopped moving: the same place on two looks 200 ms apart.
+  const still = (p) => p.until(`(() => {
+    const card = document.querySelector('#tour-card');
+    const r = document.querySelector('#tour rect');
+    const now = ['x', 'y', 'width', 'height'].map((a) => r.getAttribute(a)).join() + card.style.transform + scrollY;
+    const same = now === window.__tourLook && !card.classList.contains('move');
+    window.__tourLook = now;
+    return same;
+  })()`, 5000);
+
   // Every other check opens a link with a search in it, which never starts the tour.
   await run("the tour starts on a first visit, steps, skips and stays away", async (p) => {
     const shown = "!document.querySelector('#tour').hidden";
@@ -140,7 +150,7 @@ async function checks(b, base, view, ok, fail) {
     // Waits for the step's own answer, then checks the card leaves the control it points at in view.
     const answered = async () => {
       await p.until("!/^(Running|Waiting|Loading)/.test(document.querySelector('#tour-got').textContent)", ENGINE_MS);
-      await new Promise((r) => setTimeout(r, 400));
+      await still(p);
       const covered = await p.eval(`(() => {
         const c = document.querySelector('#tour-card').getBoundingClientRect();
         const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((a) => +document.querySelector('#tour rect').getAttribute(a));
@@ -185,6 +195,27 @@ async function checks(b, base, view, ok, fail) {
     if ((await p.eval("localStorage.getItem('scrutate-tour')")) !== "done") throw new Error("finishing the tour was not remembered");
     if ((await p.eval("document.activeElement.id")) !== "q") throw new Error("finishing the tour did not put focus in the search box");
     return `${total} steps`;
+  });
+
+  await run("a tour from the button gives back the search it replaced", async (p) => {
+    const search = "?c=callers&q=Index.open";
+    await p.go(`${base}/playground/${search}`);
+    await settle(p, /\d+ callers? in/);
+    const click = (sel) => p.eval(`document.querySelector(${JSON.stringify(sel)}).dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
+    await click("#tour-btn");
+    await p.until("document.querySelector('#tour-got mark')", ENGINE_MS);
+    await p.eval("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+    await p.until("document.querySelector('#tour').hidden", 5000);
+    const back = await p.eval("[location.search, document.querySelector('#q').value]");
+    if (back[0] !== search || back[1] !== "Index.open") throw new Error(`Skip left ${back[0]} with ${back[1]} in the search box, not the search the tour replaced`);
+    await settle(p, /\d+ callers? in/);
+    // A click into the page ends the tour and keeps the focus where the click put it.
+    await click("#tour-btn");
+    await p.until("document.querySelector('#tour-got mark')", ENGINE_MS);
+    await p.eval("(() => { const q = document.querySelector('#q'); q.focus(); q.dispatchEvent(new MouseEvent('click', { bubbles: true })); })()");
+    await p.until("document.querySelector('#tour').hidden", 5000);
+    const focus = await p.eval("document.activeElement.id");
+    if (focus !== "q") throw new Error(`a click in the search box ended the tour but focus went to ${focus || "the page"}`);
   });
 
   await run("a bad regex shows the engine's message", async (p) => {
