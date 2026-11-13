@@ -208,9 +208,10 @@ export class CodeView {
     const d = this.doc;
     const m = d && d.marks && d.marks.get(line);
     const cw = this.charWidth();
-    // Shift only as far as the mark needs, so the starts of the other lines stay in view.
+    // Shift only as far as the mark needs, so the starts of the other lines stay in view. On a
+    // phone any shift cuts every line mid-word, so the view stays at the line starts there.
     const visible = (r.clientWidth - 24) / cw - (String(d ? d.lines.length : 1).length + 2);
-    r.scrollLeft = m && m[1] > visible ? Math.min(m[0] - 2, m[1] - visible + 4) * cw : 0;
+    r.scrollLeft = m && m[1] > visible && r.clientWidth >= 600 ? Math.min(m[0] - 2, m[1] - visible + 4) * cw : 0;
   }
 
   charWidth() {

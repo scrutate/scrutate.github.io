@@ -433,7 +433,6 @@ function paintCli(sp) {
 
 const lanes = { A: { busy: false, again: false }, B: { busy: false, again: false } };
 let timer = 0;
-let runs = 0;
 
 function schedule(now) {
   const sp = spec();
