@@ -1,0 +1,176 @@
+# Builds scrutate.github.io with the playground's engine and publishes it to GitHub Pages.
+#
+# The engine (scrutate compiled to wasm32-wasip1, about 85 MB) is built here and never committed:
+# a binary that size in git warns at 50 MB, adds its size to the history on every new version and
+# cannot be traced to its source. tools/resolve_engine.sh picks the scrutate to build: the newest
+# release, or before the first release the newest main commit whose CI passed. The hourly run
+# rebuilds only when that changed, so a new scrutate version reaches the playground within about
+# an hour, and otherwise only tests the live site.
+# Nothing is published unless tests/smoke.mjs passes in Chrome on the exact files to publish;
+# after a deploy the same test runs on the live site. Every action is pinned to a commit, with
+# its tag in the comment.
+name: pages
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      engine:
+        description: "scrutate to build: empty for the newest release (main before the first one), a release tag such as v0.1.0, or main"
+        required: false
+        default: ""
+permissions:
+  contents: read
+# One run at a time per branch; a deploy is never cancelled halfway.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  SITE_URL: https://scrutate.github.io
+  WASI_SDK: wasi-sdk-34.0-x86_64-linux
+  WASI_SDK_SHA256: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
+jobs:
+  plan:
+    name: which scrutate to build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      commit: ${{ steps.pick.outputs.commit }}
+      ref: ${{ steps.pick.outputs.ref }}
+      build: ${{ steps.pick.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WANT: ${{ inputs.engine }}
+        run: |
+          read -r commit ref <<< "$(sh tools/resolve_engine.sh "$WANT")"
+          # a query string the CDN has not seen, so this reads what the site serves now
+          live=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID" | jq -r '.scrutate // empty' || true)
+          build=true
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$live" = "$commit" ]; then build=false; fi
+          { echo "commit=$commit"; echo "ref=$ref"; echo "build=$build"; } >> "$GITHUB_OUTPUT"
+          echo "scrutate $ref at $commit; the site serves ${live:-no engine}; build: $build" >> "$GITHUB_STEP_SUMMARY"
+
+  engine:
+    name: scrutate ${{ needs.plan.outputs.ref }} compiled to wasm32-wasip1
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: scrutate/scrutate
+          ref: ${{ needs.plan.outputs.commit }}
+          persist-credentials: false
+      # after the checkout, so the target lands on the toolchain scrutate's rust-toolchain.toml pins
+      - run: rustup toolchain install --no-self-update && rustup target add wasm32-wasip1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: wasi-sdk, the C compiler for SQLite and the tree-sitter grammars
+        run: |
+          curl -sSfL --retry 5 -o "$RUNNER_TEMP/wasi-sdk.tar.gz" "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/$WASI_SDK.tar.gz"
+          echo "$WASI_SDK_SHA256  $RUNNER_TEMP/wasi-sdk.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/wasi-sdk.tar.gz" -C "$RUNNER_TEMP"
+          sdk="$RUNNER_TEMP/$WASI_SDK"
+          {
+            echo "CC_wasm32_wasip1=$sdk/bin/clang"
+            echo "AR_wasm32_wasip1=$sdk/bin/llvm-ar"
+            echo "CFLAGS_wasm32_wasip1=--sysroot=$sdk/share/wasi-sysroot"
+          } >> "$GITHUB_ENV"
+      # PCRE2's JIT has no wasm backend, so the browser build leaves the pcre2 feature out
+      - run: cargo build --release -p scrutate --bin scrutate --target wasm32-wasip1 --no-default-features --locked
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: engine
+          path: target/wasm32-wasip1/release/scrutate.wasm
+          if-no-files-found: error
+          retention-days: 7
+
+  site:
+    name: the site, tested in Chrome
+    needs: [plan, engine]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # the smoke test needs Node's built-in WebSocket (Node 22.4 or later)
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: engine
+          path: engine
+      - env:
+          COMMIT: ${{ needs.plan.outputs.commit }}
+          REF: ${{ needs.plan.outputs.ref }}
+        run: sh tools/build_site.sh _site engine/scrutate.wasm "$COMMIT" "$REF"
+      - name: the built site in Chrome, before anything is published
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          # an ephemeral runner opening this site's own pages; Ubuntu 24.04's user namespace rules
+          # can stop Chrome's sandbox from starting there
+          SMOKE_NO_SANDBOX: "1"
+        run: node tests/smoke.mjs --dir _site
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    name: publish to GitHub Pages
+    needs: [plan, site]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  live:
+    name: the live site in Chrome
+    needs: [plan, deploy]
+    # after a deploy, and on the hourly run that found nothing new to build
+    if: always() && needs.plan.result == 'success' && (needs.deploy.result == 'success' || (needs.plan.outputs.build == 'false' && github.event_name == 'schedule'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: wait until the site serves this engine
+        env:
+          COMMIT: ${{ needs.plan.outputs.commit }}
+        run: |
+          for i in $(seq 60); do
+            live=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID-$i" | jq -r '.scrutate // empty' || true)
+            [ "$live" = "$COMMIT" ] && exit 0
+            sleep 10
+          done
+          echo "after 10 minutes the site serves ${live:-no engine}, not $COMMIT" >&2
+          exit 1
+      - name: the live site in Chrome
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+          SMOKE_NO_SANDBOX: "1"
+        run: node tests/smoke.mjs --url "$SITE_URL"
