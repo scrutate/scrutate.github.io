@@ -34,7 +34,7 @@ export async function launch(bin, { noSandbox = false } = {}) {
   return b;
 }
 
-export async function connect(wsUrl) {
+async function connect(wsUrl) {
   const ws = new WebSocket(wsUrl);
   await new Promise((ok, bad) => {
     ws.onopen = ok;

@@ -54,9 +54,9 @@ export async function sample(url, progress) {
 
 // owner/name, a github.com URL (with /tree/REF/PATH), or git@github.com:owner/name.git.
 export function parseRepo(text) {
-  const s = text.trim().replace(/\.git$/, "").replace(/\/+$/, "");
+  const s = text.trim().replace(/[?#].*$/, "").replace(/\.git$/, "").replace(/\/+$/, "");
   let m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:\/(tree|blob)\/([^/]+)(?:\/(.+))?)?(?:[?#].*)?$/i);
-  if (m) m = [m[0], m[1], m[2], m[4], m[3] === "blob" ? (m[5] || "").replace(/\/?[^/]*$/, "") : m[5]];
+  if (m) m = [m[0], m[1], m[2], m[4], m[3]?.toLowerCase() === "blob" ? (m[5] || "").replace(/\/?[^/]*$/, "") : m[5]];
   if (!m) m = s.match(/^git@github\.com:([\w.-]+)\/([\w.-]+)$/i);
   if (!m) m = s.match(/^([\w.-]+)\/([\w.-]+)(?:@([^/\s]+))?$/);
   if (!m) return null;

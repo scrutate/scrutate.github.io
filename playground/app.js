@@ -67,7 +67,7 @@ let src = { kind: "sample" };
   if (/^\d{1,4}$/.test(p.get("n") || "")) S.n = Number(p.get("n"));
   S.open = p.get("open") || "";
   const r = p.get("repo") && parseRepo(p.get("repo"));
-  if (r) src = { kind: "github", ...r, ref: p.get("ref") || r.ref, sub: p.get("path") || r.sub };
+  if (r) src = { kind: "github", ...r, ref: p.get("ref") || r.ref, sub: (p.get("path") || "").replace(/^\/+|\/+$/g, "") || r.sub };
 }
 
 function writeUrl() {
@@ -478,7 +478,7 @@ async function go() {
     const r = await (sp.eng === "A" ? A : B).call({ type: "run", args: sp.args, parse: sp.parse });
     if (mine === tree && JSON.stringify(spec().args) + tree === key) await show(sp, r);
   } catch (e) {
-    if (mine === tree && e.message !== "stopped") showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>Reload the page to start it again.</p>`);
+    if (mine === tree && e.message !== "stopped") showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>${sp.eng === "B" ? "Load the code again, or reload the page" : "Reload the page"} to start it again.</p>`);
   } finally {
     lane.busy = false;
     busyDot();
@@ -1316,7 +1316,8 @@ paintBoot();
 if (src.kind === "github") {
   $("#gh").value = src.sub ? `https://github.com/${src.owner}/${src.repo}/tree/${src.ref || "HEAD"}/${src.sub}` : `${src.owner}/${src.repo}${src.ref ? `@${src.ref}` : ""}`;
   loadRepo({ owner: src.owner, repo: src.repo, ref: src.ref, sub: src.sub }).then(async (ok) => {
-    if (ok || files.paths.length) return;
+    // gen above 1: the person started another load, which the sample must not replace
+    if (ok || files.paths.length || gen > 1) return;
     const why = lastError;
     src = { kind: "sample" };
     if (await loadSample()) paintSource(`${why ? `${why} ` : ""}Showing the sample instead.`);
