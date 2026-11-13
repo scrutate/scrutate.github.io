@@ -37,8 +37,15 @@ export async function launch(bin, { noSandbox = false } = {}) {
 async function connect(wsUrl) {
   const ws = new WebSocket(wsUrl);
   await new Promise((ok, bad) => {
-    ws.onopen = ok;
-    ws.onerror = () => bad(new Error(`cannot open ${wsUrl}`));
+    const t = setTimeout(() => bad(new Error(`${wsUrl} did not open in 30 s`)), 30000);
+    ws.onopen = () => {
+      clearTimeout(t);
+      ok();
+    };
+    ws.onerror = () => {
+      clearTimeout(t);
+      bad(new Error(`cannot open ${wsUrl}`));
+    };
   });
   let seq = 0;
   const wait = new Map();

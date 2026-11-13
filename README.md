@@ -62,6 +62,7 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   node tests/smoke.mjs --dir /tmp/site
 ```
 
+`node --test tests/*.test.mjs` runs the unit tests, which need no engine and no browser.
 `node tests/smoke.mjs --url https://scrutate.github.io` tests the live site the same way. To look
 at the site, serve the assembled folder with any static server, for example
 `python3 -m http.server -d /tmp/site`.
