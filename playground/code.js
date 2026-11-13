@@ -2,7 +2,7 @@
 // the lines on screen, so a 20,000-line file opens as fast as a short one.
 import { highlightTree, tagHighlighter, tags as t } from "@lezer/highlight";
 
-export const LH = 20;
+const LH = 20;
 const MAX_HIGHLIGHT = 1.5e6;
 const LONG = 3000;
 
@@ -84,7 +84,7 @@ async function parse(parser, text) {
 }
 
 // Per line, a flat list of [from, to, class] in columns.
-export async function tokens(path, text) {
+async function tokens(path, text) {
   if (text.length > MAX_HIGHLIGHT) return null;
   const ext = extOf(path);
   const parser = await parserFor(path).catch(() => null);

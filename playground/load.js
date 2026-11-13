@@ -55,14 +55,17 @@ export async function sample(url, progress) {
 // owner/name, a github.com URL (with /tree/REF/PATH), or git@github.com:owner/name.git.
 export function parseRepo(text) {
   const s = text.trim().replace(/\.git$/, "").replace(/\/+$/, "");
-  let m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:\/(?:tree|blob)\/([^/]+)(?:\/(.+))?)?(?:[?#].*)?$/i);
+  let m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:\/(tree|blob)\/([^/]+)(?:\/(.+))?)?(?:[?#].*)?$/i);
+  if (m) m = [m[0], m[1], m[2], m[4], m[3] === "blob" ? (m[5] || "").replace(/\/?[^/]*$/, "") : m[5]];
   if (!m) m = s.match(/^git@github\.com:([\w.-]+)\/([\w.-]+)$/i);
   if (!m) m = s.match(/^([\w.-]+)\/([\w.-]+)(?:@([^/\s]+))?$/);
   if (!m) return null;
-  return { owner: m[1], repo: m[2], ref: m[3] || "", sub: (m[4] || "").replace(/^\/+/, "") };
+  return { owner: m[1], repo: m[2], ref: m[3] === "HEAD" ? "" : m[3] || "", sub: (m[4] || "").replace(/^\/+/, "") };
 }
 
 export async function github({ owner, repo, ref, sub }, progress, signal) {
+  // fetch would resolve these, and the page would read another repository under this name
+  if (sub && sub.split("/").some((p) => !p || p === "." || p === "..")) throw new Error(`${sub} is not a folder path.`);
   const at = ref || "HEAD";
   // REF:PATH lists one folder, so a folder of a repository too big to list whole still loads.
   const api = `https://api.github.com/repos/${owner}/${repo}/git/trees/${seg(at)}${sub ? `:${seg(sub)}` : ""}?recursive=1`;

@@ -22,6 +22,10 @@ esac
 here=$(cd "$(dirname "$0")/.." && pwd)
 site=$(git -C "$here" rev-parse HEAD)
 # OUT is deleted first, so only a new folder, an empty one or an earlier build is accepted
+if [ -e "$out/.git" ] || { [ -d "$out" ] && [ "$(cd "$out" && pwd)" = "$here" ]; }; then
+  echo "OUT is a git checkout; give an empty or new folder" >&2
+  exit 2
+fi
 if [ -e "$out" ] && { [ ! -d "$out" ] || [ -n "$(ls -A "$out")" ]; } && [ ! -f "$out/playground/engine.json" ]; then
   echo "OUT exists and is not an earlier build; give an empty or new folder" >&2
   exit 2
