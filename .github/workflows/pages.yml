@@ -162,16 +162,16 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - name: wait until the site serves this engine
+      - name: wait until the site serves this engine and these pages
         env:
           COMMIT: ${{ needs.plan.outputs.commit }}
         run: |
           for i in $(seq 60); do
-            live=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID-$i" | jq -r '.scrutate // empty' || true)
-            [ "$live" = "$COMMIT" ] && exit 0
+            live=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID-$i" | jq -r '"\(.scrutate) \(.site)"' || true)
+            [ "$live" = "$COMMIT $GITHUB_SHA" ] && exit 0
             sleep 10
           done
-          echo "after 10 minutes the site serves ${live:-no engine}, not $COMMIT" >&2
+          echo "after 10 minutes the site serves '${live:-nothing}', not scrutate $COMMIT with pages $GITHUB_SHA" >&2
           exit 1
       # headers only: each Chrome check downloads the 85 MB engine again, too much every hour
       - name: the pages and the engine answer
