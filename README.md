@@ -66,7 +66,7 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
 ```
 
 `--dir` serves the folder on a free local port. A run takes about 50 seconds and ends with
-`20 passed, 0 failed`; any failure prints the page's own message and exits 1. A check whose page
+`22 passed, 0 failed`; any failure prints the page's own message and exits 1. A check whose page
 got an HTTP 5xx runs once more in a fresh page, and its PASS line says so: GitHub Pages answers 503
 now and then just after a deploy, and a static site cannot cause one.
 `node --test tests/*.test.mjs` runs the unit tests, which need no engine and no browser.
@@ -100,10 +100,11 @@ whose example the loaded code lacks is left out. It starts once, on a first visi
 playground link, after the first result shows. A link with a search in it never starts it, and
 neither does a visit after it was skipped or finished, which `localStorage` keeps under
 `scrutate-tour`; "Take the tour" in the header starts it again. Skip and Esc give back the search
-the tour replaced; a click into the page ends the tour and keeps what the page shows. `app.js` gives
-it its examples, a way to run one, and a way to save and restore the search. It fires
-`scrutate:shown` on `document` each time a result is on the page, and `scrutate:failed` when the
-engine stops or the index does not build, so a step never waits for ever.
+the tour replaced; a click into the page, or other code loaded, ends the tour and keeps what the
+page shows. `app.js` gives it its examples, a way to run one, and a way to save and restore the
+search. It fires `scrutate:shown` on `document` each time a result is on the page,
+`scrutate:failed` when the engine stops or the index does not build, so a step never waits for
+ever, and `scrutate:source` when other code replaces the code it started on.
 
 The images in `assets/` are copies of `docs/assets/` in the scrutate repository, where
 `tools/gen_assets.py` writes them; copy them again when they change there.

@@ -8,6 +8,7 @@
 // CHROME_BIN names the browser (default google-chrome); SMOKE_NO_SANDBOX=1 adds --no-sandbox.
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { launch, page } from "./cdp.mjs";
 
@@ -225,6 +226,23 @@ async function checks(b, base, view, ok, fail) {
     await p.until("document.querySelector('#tour').hidden", 5000);
     const focus = await p.eval("document.activeElement.id");
     if (focus !== "q") throw new Error(`a click in the search box ended the tour but focus went to ${focus || "the page"}`);
+  });
+
+  await run("loading other code ends the tour", async (p) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "smoke-drop-"));
+    fs.writeFileSync(path.join(dir, "a.rs"), "fn dropped_here() {}\n");
+    try {
+      await p.go(`${base}/playground/`);
+      await p.until("!document.querySelector('#tour').hidden && document.querySelector('#tour-got mark')", ENGINE_MS);
+      await p.drop([dir]);
+      await p.until("/on this computer/.test(document.querySelector('#src-meta').textContent)", 30000);
+      // Its steps and answers are about the code it started on.
+      await p.until("document.querySelector('#tour').hidden", 5000).catch(() => {
+        throw new Error("the tour stayed open on code that is no longer loaded");
+      });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   await run("a repo link that names no repository says so", async (p) => {

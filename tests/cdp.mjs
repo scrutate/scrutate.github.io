@@ -103,6 +103,12 @@ export async function page(b, { width, height, mobile }) {
       const doc = responses.findLast((r) => r.type === "Document");
       if (doc && doc.status >= 500) throw new Error(`the server answered HTTP ${doc.status} for ${doc.url}`);
     },
+    // A real drop of files from disk onto the middle of the page, as from a file manager.
+    async drop(files) {
+      const [x, y] = await p.eval("[innerWidth / 2, innerHeight / 2]");
+      const data = { items: [], files, dragOperationsMask: 1 };
+      for (const type of ["dragEnter", "dragOver", "drop"]) await s("Input.dispatchDragEvent", { type, x, y, data });
+    },
     async eval(expr) {
       const r = await s("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });
       if (r.exceptionDetails) throw new Error(`eval: ${r.exceptionDetails.exception?.description || r.exceptionDetails.text}`);

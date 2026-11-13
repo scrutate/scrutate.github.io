@@ -305,7 +305,10 @@ async function useSource(next, job) {
   $("#dstat").textContent = "";
   if ($("#dlg").open) $("#dlg").close();
   paintSource();
-  if (mine > 1) S.open = "";
+  if (mine > 1) {
+    S.open = "";
+    document.dispatchEvent(new Event("scrutate:source"));
+  }
   last = null;
   // The old rows name files of the old tree; the new results replace them.
   list.set([]);

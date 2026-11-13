@@ -337,6 +337,9 @@ export function initTour(app) {
     if (!card.contains(e.target)) end("skipped", true);
   }
 
+  // Its steps and answers are about the code it started on.
+  const onSource = () => end("skipped", true);
+
   function next() {
     if (at < steps.length - 1) go(at + 1);
     else end("done");
@@ -355,6 +358,7 @@ export function initTour(app) {
     addEventListener("click", onClick, true);
     addEventListener("scroll", wake, { capture: true, passive: true });
     addEventListener("resize", wake);
+    document.addEventListener("scrutate:source", onSource);
     watch.observe($("#stats"), { childList: true, characterData: true, subtree: true });
     go(0, true);
     requestAnimationFrame(() => root.classList.add("on"));
@@ -373,6 +377,7 @@ export function initTour(app) {
     removeEventListener("click", onClick, true);
     removeEventListener("scroll", wake, { capture: true });
     removeEventListener("resize", wake);
+    document.removeEventListener("scrutate:source", onSource);
     watch.disconnect();
     remember(how);
     // Skip gives back the search the tour replaced; a click into the page keeps what the page shows.
