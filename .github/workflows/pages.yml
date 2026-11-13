@@ -56,7 +56,7 @@ jobs:
           picked=$(sh tools/resolve_engine.sh "$WANT")
           read -r commit ref <<< "$picked"
           # a query string the CDN has not seen, so this reads what the site serves now
-          served=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID" || true)
+          served=$(curl -fsS --max-time 30 "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID" || true)
           live=$(jq -r '.scrutate // empty' <<< "$served" 2>/dev/null || true)
           live_site=$(jq -r '.site // empty' <<< "$served" 2>/dev/null || true)
           # the site commit too: a push run that waited behind this one may have been cancelled
@@ -167,7 +167,7 @@ jobs:
           COMMIT: ${{ needs.plan.outputs.commit }}
         run: |
           for i in $(seq 60); do
-            live=$(curl -fsS "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID-$i" | jq -r '"\(.scrutate) \(.site)"' || true)
+            live=$(curl -fsS --max-time 30 "$SITE_URL/playground/engine.json?run=$GITHUB_RUN_ID-$i" | jq -r '"\(.scrutate) \(.site)"' || true)
             [ "$live" = "$COMMIT $GITHUB_SHA" ] && exit 0
             sleep 10
           done
@@ -176,8 +176,8 @@ jobs:
       # headers only: each Chrome check downloads the 85 MB engine again, too much every hour
       - name: the pages and the engine answer
         run: |
-          for page in / /playground/ /playground/app.js; do curl -fsS -o /dev/null "$SITE_URL$page?run=$GITHUB_RUN_ID"; done
-          type=$(curl -fsSI "$SITE_URL/playground/scrutate.wasm?run=$GITHUB_RUN_ID" | tr -d '\r' | awk -F': ' 'tolower($1) == "content-type" { print $2 }')
+          for page in / /playground/ /playground/app.js; do curl -fsS --max-time 30 -o /dev/null "$SITE_URL$page?run=$GITHUB_RUN_ID"; done
+          type=$(curl -fsSI --max-time 30 "$SITE_URL/playground/scrutate.wasm?run=$GITHUB_RUN_ID" | tr -d '\r' | awk -F': ' 'tolower($1) == "content-type" { print $2 }')
           [ "$type" = application/wasm ] || { echo "scrutate.wasm is served as '$type', not application/wasm" >&2; exit 1; }
       - name: the live site in Chrome
         if: needs.deploy.result == 'success'

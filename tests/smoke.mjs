@@ -29,7 +29,7 @@ function serve(root) {
     if (file !== root && !file.startsWith(root + path.sep)) return res.writeHead(403).end();
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
     if (!fs.existsSync(file)) return res.writeHead(404).end("not found");
-    res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
+    res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream", "Content-Length": fs.statSync(file).size });
     fs.createReadStream(file).pipe(res);
   });
   return new Promise((ok) => server.listen(0, "127.0.0.1", () => ok({ server, base: `http://127.0.0.1:${server.address().port}` })));
@@ -46,13 +46,14 @@ const STATS = "document.querySelector('#stats')";
 async function checks(b, base, view, ok, fail) {
   const run = async (name, fn) => {
     const p = await page(b, view);
+    const bad = () => p.problems.concat(p.responses.filter((r) => r.status >= 400).map((r) => `HTTP ${r.status} ${r.url}`));
     try {
       const note = await fn(p);
-      const bad = p.problems.concat(p.responses.filter((r) => r.status >= 400).map((r) => `HTTP ${r.status} ${r.url}`));
-      if (bad.length) throw new Error(bad.join("\n  "));
+      if (bad().length) throw new Error(bad().join("\n  "));
       ok(`${view.name}: ${name}${note ? ` (${note})` : ""}`);
     } catch (e) {
-      fail(`${view.name}: ${name}: ${e.message}`);
+      // A page error is usually why a wait timed out, so it goes in the report too.
+      fail([`${view.name}: ${name}: ${e.message}`, ...bad().filter((x) => !e.message.includes(x))].join("\n  "));
     } finally {
       await p.close().catch(() => {});
     }
