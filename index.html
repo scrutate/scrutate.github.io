@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Scrutate: instant code search and code intelligence in one Rust binary</title>
-<meta name="description" content="Scrutate searches any folder with no index, and indexes a repository for ranked search by meaning or name, definitions, callers, references and the tests a git diff touches. A CLI, an MCP server for AI coding agents, a language server and Python bindings. Open source, MIT OR Apache-2.0.">
+<title>Scrutate: instant code search and code intelligence</title>
+<meta name="description" content="Open-source code search for the terminal, editors and AI agents. Grep any folder with no index, or index a repo for ranked search, callers and references.">
 <link rel="canonical" href="https://scrutate.github.io/">
 <link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0c0c0e">
@@ -21,16 +21,46 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "Scrutate",
-  "url": "https://scrutate.github.io/",
-  "description": "Universal instant code search and persistent code intelligence, in one Rust binary. A CLI, an MCP server for AI coding agents, a language server and Python bindings.",
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "macOS, Linux, Windows",
-  "license": ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
-  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-  "sameAs": ["https://github.com/scrutate/scrutate"],
-  "author": {"@type": "Person", "name": "Cris Nahine", "url": "https://github.com/crisnahine"}
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://scrutate.github.io/#site",
+      "url": "https://scrutate.github.io/",
+      "name": "Scrutate"
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://scrutate.github.io/#app",
+      "name": "Scrutate",
+      "url": "https://scrutate.github.io/",
+      "description": "Universal instant code search and persistent code intelligence, in one Rust binary. A CLI, an MCP server for AI coding agents, a language server and Python bindings.",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "macOS, Linux, Windows",
+      "installUrl": "https://github.com/scrutate/scrutate/blob/main/docs/INSTALL.md",
+      "featureList": [
+        "Search any folder with no index: literal, regex, identifier in every casing, fuzzy",
+        "Ranked search by meaning, name or identifier",
+        "Definitions, callers, callees and references",
+        "The tests a git diff touches",
+        "MCP server for AI coding agents",
+        "Language server for editors",
+        "Python bindings"
+      ],
+      "license": ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+      "sameAs": ["https://github.com/scrutate/scrutate"],
+      "author": {"@type": "Person", "name": "Cris Nahine", "url": "https://github.com/crisnahine"}
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://github.com/scrutate/scrutate",
+      "name": "scrutate",
+      "codeRepository": "https://github.com/scrutate/scrutate",
+      "programmingLanguage": "Rust",
+      "license": ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
+      "targetProduct": {"@id": "https://scrutate.github.io/#app"}
+    }
+  ]
 }
 </script>
 <style>
@@ -88,7 +118,10 @@ pre .c { color: #7c7a73; }
 h3.label { font-size: 15px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
 footer { border-top: 1px solid var(--line); padding: 40px 0 56px; color: var(--muted); font-size: 15px; }
 footer .cols { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-footer h4 { color: var(--paper); margin: 0 0 8px; font-size: 15px; }
+footer h2 { color: var(--paper); margin: 0 0 8px; font-size: 15px; letter-spacing: 0; }
+.qa { display: grid; gap: 4px 32px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.qa h3 { font-size: 17px; margin: 20px 0 6px; }
+.qa p { margin: 0; color: var(--muted); }
 footer ul { list-style: none; margin: 0; padding: 0; }
 footer li { margin: 4px 0; }
 footer a { color: var(--muted); text-decoration: none; }
@@ -104,7 +137,7 @@ footer a:hover { color: var(--paper); }
 <body>
 <header>
   <div class="wrap">
-    <a class="brand" href="./"><img src="assets/logo-mark.svg" alt="">Scrutate</a>
+    <a class="brand" href="./"><img src="assets/logo-mark.svg" width="28" height="28" alt="">Scrutate</a>
     <nav aria-label="Main">
       <a class="opt" href="#engines">Engines</a>
       <a href="#start">Quick start</a>
@@ -214,13 +247,46 @@ cargo build --release -p scrutate --locked   <span class="c"># target/release/sc
     </div>
   </div>
 </section>
+
+<section id="questions">
+  <div class="wrap">
+    <h2>Questions</h2>
+    <div class="qa">
+      <div>
+        <h3>What is Scrutate?</h3>
+        <p>An open-source code search tool for the terminal, editors and AI coding agents, in one Rust binary. Engine A searches any folder at once with no index, like grep or ripgrep. Engine B indexes a repository and answers ranked searches by meaning or name, finds definitions, callers and references, and names the tests a git diff touches.</p>
+      </div>
+      <div>
+        <h3>How is it different from ripgrep?</h3>
+        <p>Engine A is built on the same <code>grep</code> and <code>ignore</code> crates as ripgrep and is tested against it. It adds one spelling for every casing of an identifier, matches within N edits and a trigram text index. Engine B has no ripgrep counterpart: it knows where each function is defined, what calls it and what each file imports.</p>
+      </div>
+      <div>
+        <h3>Do I need to build an index?</h3>
+        <p>No. <code>scrutate grep</code> needs no index, no parser and no background process. Run <code>scrutate index</code> when you want Engine B; the index lives in <code>.scrutate/</code> at the repository root and updates incrementally.</p>
+      </div>
+      <div>
+        <h3>Does my code leave my machine?</h3>
+        <p>No. The binary makes no network connections and has no HTTP or DNS dependency, and the models it ranks with are compiled into it.</p>
+      </div>
+      <div>
+        <h3>How do I give an AI coding agent its tools?</h3>
+        <p>Run <code>scrutate setup claude</code>, or <code>codex</code>, <code>opencode</code>, <code>cursor</code> or <code>gemini</code>. It writes an MCP server entry into that agent's configuration, and <code>--uninstall</code> takes it out again.</p>
+      </div>
+      <div>
+        <h3>Is it free to use?</h3>
+        <p>Yes. Scrutate is licensed under MIT OR Apache-2.0, at your option, and that covers the code, the models and the documents.</p>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:24px"><a href="https://github.com/scrutate/scrutate/blob/main/docs/FAQ.md">All questions and answers</a></p>
+  </div>
+</section>
 </main>
 
 <footer>
   <div class="wrap">
     <div class="cols">
       <div>
-        <h4>Documentation</h4>
+        <h2>Documentation</h2>
         <ul>
           <li><a href="https://github.com/scrutate/scrutate/blob/main/docs/FAQ.md">Questions and answers</a></li>
           <li><a href="https://github.com/scrutate/scrutate/blob/main/docs/CLI.md">Command line</a></li>
@@ -230,7 +296,7 @@ cargo build --release -p scrutate --locked   <span class="c"># target/release/sc
         </ul>
       </div>
       <div>
-        <h4>Project</h4>
+        <h2>Project</h2>
         <ul>
           <li><a href="https://github.com/scrutate/scrutate">Source on GitHub</a></li>
           <li><a href="https://github.com/scrutate/scrutate/issues">Issues</a></li>
@@ -239,7 +305,7 @@ cargo build --release -p scrutate --locked   <span class="c"># target/release/sc
         </ul>
       </div>
       <div>
-        <h4>Support the work</h4>
+        <h2>Support the work</h2>
         <ul>
           <li><a href="https://github.com/sponsors/crisnahine">GitHub Sponsors</a></li>
           <li><a href="https://buymeacoffee.com/crisnahine">Buy a coffee</a></li>
