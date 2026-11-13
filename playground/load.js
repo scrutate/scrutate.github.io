@@ -1,6 +1,7 @@
 // Gets code into the page: the bundled sample, a public GitHub repository, or a local folder.
-// Every loader returns { name, files: [[path, bytes or text]], bytes, left }, or null when the
-// person picked nothing, and reads nothing it skips.
+// Every loader returns { files: [[path, bytes or text]], bytes, left } (a folder adds its name,
+// the sample its name and commit), or null when the person picked nothing, and reads nothing it
+// skips.
 export const CAP = { files: 4000, bytes: 60e6, file: 1e6 };
 // The folder the engine sees the files in.
 export const ROOT = "/w";

@@ -150,11 +150,13 @@ class Engine {
     this.w.postMessage(msg, transfer || []);
   }
   get idle() {
-    return this.wait.size === 0;
+    return !this.dead && this.wait.size === 0;
   }
 }
 const A = new Engine();
 const B = new Engine();
+// File reads and snippets go to the grep worker unless it is busy and the index one is not.
+const fileWorker = () => (A.idle || !B.idle ? A : B);
 
 async function fetchEngine() {
   try {
@@ -219,6 +221,8 @@ function engineFailed(e) {
 }
 
 let gen = 0;
+// Counts the file trees sent to the workers; gen counts loads, which start before the tree changes.
+let tree = 0;
 let files = { name: "", paths: [], bytes: 0, commit: "", left: null };
 const texts = new Map();
 let loading = null;
@@ -283,8 +287,11 @@ async function useSource(next, job) {
   src = next;
   files = { name: data.name || "", commit: data.commit || "", paths: data.files.map((f) => f[0]), bytes: data.bytes, left: data.left };
   texts.clear();
+  tree++;
+  previewSeq++;
   if (mine > 1) B.start();
   const transfer = data.files.map((f) => f[1]).filter((b) => b instanceof ArrayBuffer);
+  // B gets a copy first: the transfer to A detaches the buffers.
   B.send({ type: "files", files: data.files, gen: mine });
   A.send({ type: "files", files: data.files, gen: mine }, transfer);
   clearInterval(ixTimer);
@@ -711,7 +718,7 @@ function noteRow(html, act, chars) {
 async function snippets(rows) {
   const cards = rows.filter((r) => r.t === "card");
   if (!cards.length) return;
-  const eng = A.idle || !B.idle ? A : B;
+  const eng = fileWorker();
   const mine = view;
   try {
     const r = await eng.call({ type: "snip", want: cards.map((c) => [c.item.path, c.item.start, c.item.end]) });
@@ -843,10 +850,10 @@ function renderRow(row) {
 
 async function fileText(path) {
   if (texts.has(path)) return texts.get(path);
-  const eng = A.idle || !B.idle ? A : B;
-  const mine = gen;
+  const eng = fileWorker();
+  const mine = tree;
   const r = await eng.call({ type: "file", path });
-  if (r.text != null && mine === gen) {
+  if (r.text != null && mine === tree) {
     if (texts.size > 24) texts.delete(texts.keys().next().value);
     texts.set(path, r.text);
   }
@@ -948,8 +955,12 @@ function paintControls() {
   paintCli(spec());
 }
 
+function examples() {
+  return (src.kind === "sample" ? EXAMPLES.sample : EXAMPLES.other)[S.c] || [];
+}
+
 function paintExamples() {
-  const set = (src.kind === "sample" ? EXAMPLES.sample : EXAMPLES.other)[S.c] || [];
+  const set = examples();
   $("#ex").innerHTML = set.length ? `<span>Try</span> ${set.map((e, k) => `<button type="button" data-ex="${k}">${esc(e.q)}${e.t ? ` <span>${esc(e.t)}</span>` : ""}</button>`).join("")}` : `<span>Pick a name from a search result, or press c, r, s or d on a selected result.</span>`;
 }
 
@@ -1026,7 +1037,7 @@ $("#g").addEventListener("input", (e) => {
 $("#ex").addEventListener("click", (e) => {
   const b = e.target.closest("[data-ex]");
   if (!b) return;
-  const ex = (src.kind === "sample" ? EXAMPLES.sample : EXAMPLES.other)[S.c][Number(b.dataset.ex)];
+  const ex = examples()[Number(b.dataset.ex)];
   Object.assign(S, { q: ex.q, open: "", n: 0 });
   if (S.c === "grep") Object.assign(S, { m: ex.m || "regex", f: ex.f || 1, i: false, w: false, g: ex.g || "" });
   paintControls();
