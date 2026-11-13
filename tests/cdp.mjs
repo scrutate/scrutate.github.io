@@ -87,7 +87,7 @@ export async function page(b, { width, height, mobile }) {
     if (m.method === "Runtime.exceptionThrown") problems.push(`exception: ${p.exceptionDetails.exception?.description || p.exceptionDetails.text}`);
     if (m.method === "Runtime.consoleAPICalled" && p.type === "error") problems.push(`console error: ${p.args.map((a) => a.value ?? a.description).join(" ")}`);
     if (m.method === "Log.entryAdded" && p.entry.level === "error") problems.push(`log error: ${p.entry.text} ${p.entry.url || ""}`.trim());
-    if (m.method === "Network.responseReceived") responses.push({ url: p.response.url, status: p.response.status });
+    if (m.method === "Network.responseReceived") responses.push({ url: p.response.url, status: p.response.status, type: p.type });
     if (m.method === "Network.loadingFailed" && !p.canceled) problems.push(`network failed: ${p.errorText} (${p.type})`);
   });
   for (const d of ["Page", "Runtime", "Log", "Network"]) await s(`${d}.enable`);
@@ -99,6 +99,9 @@ export async function page(b, { width, height, mobile }) {
     async go(url) {
       await s("Page.navigate", { url });
       await p.until("document.readyState === 'complete'", 30000);
+      // The host's error page would otherwise be waited on until a check times out.
+      const doc = responses.findLast((r) => r.type === "Document");
+      if (doc && doc.status >= 500) throw new Error(`the server answered HTTP ${doc.status} for ${doc.url}`);
     },
     async eval(expr) {
       const r = await s("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true });

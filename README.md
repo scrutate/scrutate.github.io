@@ -66,7 +66,9 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
 ```
 
 `--dir` serves the folder on a free local port. A run takes about 50 seconds and ends with
-`18 passed, 0 failed`; any failure prints the page's own message and exits 1.
+`18 passed, 0 failed`; any failure prints the page's own message and exits 1. A check whose page
+got an HTTP 5xx runs once more in a fresh page, and its PASS line says so: GitHub Pages answers 503
+now and then just after a deploy, and a static site cannot cause one.
 `node --test tests/*.test.mjs` runs the unit tests, which need no engine and no browser.
 `node tests/smoke.mjs --url https://scrutate.github.io` tests the live site the same way. To look
 at the site, serve the assembled folder with any static server, for example

@@ -45,17 +45,26 @@ const STATS = "document.querySelector('#stats')";
 
 async function checks(b, base, view, ok, fail) {
   const run = async (name, fn) => {
-    const p = await page(b, view);
-    const bad = () => p.problems.concat(p.responses.filter((r) => r.status >= 400).map((r) => `HTTP ${r.status} ${r.url}`));
-    try {
-      const note = await fn(p);
-      if (bad().length) throw new Error(bad().join("\n  "));
-      ok(`${view.name}: ${name}${note ? ` (${note})` : ""}`);
-    } catch (e) {
-      // A page error is usually why a wait timed out, so it goes in the report too.
-      fail([`${view.name}: ${name}: ${e.message}`, ...bad().filter((x) => !e.message.includes(x))].join("\n  "));
-    } finally {
-      await p.close().catch(() => {});
+    let again = "";
+    for (let tries = 1; ; tries++) {
+      const p = await page(b, view);
+      const bad = () => p.problems.concat(p.responses.filter((r) => r.status >= 400).map((r) => `HTTP ${r.status} ${r.url}`));
+      let busy = null;
+      try {
+        const note = await fn(p);
+        if (bad().length) throw new Error(bad().join("\n  "));
+        return ok(`${view.name}: ${name}${note ? ` (${note})` : ""}${again}`);
+      } catch (e) {
+        busy = p.responses.find((r) => r.status >= 500);
+        // A page error is usually why a wait timed out, so it goes in the report too.
+        if (!busy || tries > 1) return fail([`${view.name}: ${name}: ${e.message}`, ...bad().filter((x) => !e.message.includes(x))].join("\n  "));
+      } finally {
+        await p.close().catch(() => {});
+      }
+      // A 5xx is the host asking to try again, and a static site cannot cause one: GitHub Pages
+      // answers 503 now and then just after a deploy. One more try, in a fresh page.
+      again = `, after HTTP ${busy.status} on the first try`;
+      await new Promise((r) => setTimeout(r, 15000));
     }
   };
   const statsText = (p) => p.eval(`${STATS}.textContent`);
