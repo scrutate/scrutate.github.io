@@ -7,12 +7,15 @@ import json
 import subprocess
 import sys
 import tarfile
+from pathlib import Path
 
 PARTS = ["crates", "vendor", "tools"]
-OUT = "playground/samples/scrutate-src.json"
+OUT = Path(__file__).resolve().parent.parent / "playground" / "samples" / "scrutate-src.json"
 
 
 def main():
+    if len(sys.argv) != 3:
+        sys.exit("usage: python3 tools/make_sample.py SCRUTATE_CHECKOUT COMMIT")
     repo, commit = sys.argv[1], sys.argv[2]
     sha = subprocess.run(["git", "-C", repo, "rev-parse", "--short", commit], capture_output=True, text=True, check=True).stdout.strip()
     tar = subprocess.run(["git", "-C", repo, "archive", commit, *PARTS], capture_output=True, check=True).stdout
@@ -29,7 +32,7 @@ def main():
             except UnicodeDecodeError:
                 continue
     files.sort()
-    with open(OUT, "w") as f:
+    with open(OUT, "w", encoding="utf-8") as f:
         json.dump({"name": "scrutate's own source", "commit": sha, "files": files}, f, separators=(",", ":"))
     print(f"{OUT}: {len(files)} files, {sum(len(c.encode()) for _, c in files) / 1e6:.1f} MB, commit {sha}")
 

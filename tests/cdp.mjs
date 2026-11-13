@@ -51,8 +51,14 @@ export async function connect(wsUrl) {
       m.error ? p.bad(new Error(`${p.method}: ${m.error.message}`)) : p.ok(m.result);
     } else if (m.method) for (const l of listeners) l(m);
   };
+  // A browser that crashes fails every pending call at once instead of hanging the run.
+  ws.onclose = () => {
+    for (const p of wait.values()) p.bad(new Error(`${p.method}: the browser closed the connection`));
+    wait.clear();
+  };
   const send = (method, params = {}, sessionId) =>
     new Promise((ok, bad) => {
+      if (ws.readyState !== WebSocket.OPEN) return bad(new Error(`${method}: the browser connection is closed`));
       const id = ++seq;
       wait.set(id, { ok, bad, method });
       ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
