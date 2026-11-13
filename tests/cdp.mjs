@@ -63,7 +63,7 @@ export async function connect(wsUrl) {
       wait.set(id, { ok, bad, method });
       ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
     });
-  return { send, on: (f) => listeners.push(f), close: () => ws.close() };
+  return { send, on: (f) => listeners.push(f), close: () => ws.close(), closed: () => ws.readyState !== WebSocket.OPEN };
 }
 
 // A fresh browser context per page, so no cache or storage carries over between checks.
@@ -101,7 +101,11 @@ export async function page(b, { width, height, mobile }) {
     async until(expr, ms) {
       const t0 = Date.now();
       for (;;) {
-        if (await p.eval(`!!(${expr})`).catch(() => false)) return Date.now() - t0;
+        const yes = await p.eval(`!!(${expr})`).catch((e) => {
+          if (b.closed()) throw e;
+          return false;
+        });
+        if (yes) return Date.now() - t0;
         if (Date.now() - t0 > ms) throw new Error(`timed out after ${ms} ms waiting for: ${expr}`);
         await new Promise((r) => setTimeout(r, 200));
       }

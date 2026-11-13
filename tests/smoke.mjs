@@ -19,7 +19,12 @@ const TYPES = {
 
 function serve(root) {
   const server = http.createServer((req, res) => {
-    const rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    let rel;
+    try {
+      rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    } catch {
+      return res.writeHead(400).end();
+    }
     let file = path.join(root, rel);
     if (file !== root && !file.startsWith(root + path.sep)) return res.writeHead(403).end();
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
@@ -49,7 +54,7 @@ async function checks(b, base, view, ok, fail) {
     } catch (e) {
       fail(`${view.name}: ${name}: ${e.message}`);
     } finally {
-      await p.close();
+      await p.close().catch(() => {});
     }
   };
   const statsText = (p) => p.eval(`${STATS}.textContent`);
@@ -98,10 +103,9 @@ async function checks(b, base, view, ok, fail) {
 
   // Each command reads its own JSON fields, so each one is run once.
   await run("symbol, refs, callees and similar answer", async (p) => {
-    await p.go(`${base}/playground/?c=symbol&q=Index.open`);
-    const notes = [await settle(p, /\d+ definitions? in/)];
-    for (const [c, q, re] of [["refs", "query_words", /\d+ uses? of \d+ definitions?/], ["callees", "Index.open", /\d+ in the repository/], ["similar", "FuzzyMatcher.new", /\d+ similar definitions? in/]]) {
-      await p.eval(`(() => { document.querySelector('.tab[data-cmd="${c}"]').click(); const q = document.querySelector('#q'); q.value = ${JSON.stringify(q)}; q.dispatchEvent(new Event('input')); })()`);
+    const notes = [];
+    for (const [c, q, re] of [["symbol", "Index.open", /\d+ definitions? in/], ["refs", "query_words", /\d+ uses? of \d+ definitions?/], ["callees", "Index.open", /\d+ in the repository/], ["similar", "FuzzyMatcher.new", /\d+ similar definitions? in/]]) {
+      await p.go(`${base}/playground/?c=${c}&q=${encodeURIComponent(q)}`);
       notes.push(await settle(p, re));
     }
     return notes.join("; ");
@@ -130,6 +134,8 @@ async function main() {
   const failed = [];
   try {
     for (const view of VIEWS) await checks(b, base, view, (m) => passed.push(m), (m) => failed.push(m));
+  } catch (e) {
+    failed.push(`the run stopped: ${e.message}`);
   } finally {
     await b.quit();
     if (server) server.close();
