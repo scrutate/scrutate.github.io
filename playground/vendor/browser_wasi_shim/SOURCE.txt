@@ -1,0 +1,2 @@
+@bjorn3/browser_wasi_shim 0.4.2 (MIT OR Apache-2.0), the dist/ files of the npm package, unchanged.
+https://github.com/bjorn3/browser_wasi_shim
