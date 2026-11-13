@@ -114,7 +114,7 @@ export async function github({ owner, repo, ref, sub }, progress, signal) {
 
 async function readAll(list, progress) {
   const budget = new Budget();
-  const keep = list.filter(([path, size]) => !skipPath(path.split("/")) && budget.take(path, size));
+  const keep = list.filter(([path, size]) => budget.take(path, size));
   const files = [];
   let done = 0;
   await lanes(keep, async ([path, , get]) => {
@@ -154,7 +154,8 @@ export async function fromInput(fileList, progress) {
   const all = [...fileList];
   if (!all.length) return null;
   const name = all[0].webkitRelativePath.split("/")[0] || "your folder";
-  const list = all.map((f) => [f.webkitRelativePath.split("/").slice(1).join("/") || f.name, f.size, async () => f]);
+  // The other readers skip these folders as they walk; this list arrives whole.
+  const list = all.map((f) => [f.webkitRelativePath.split("/").slice(1).join("/") || f.name, f.size, async () => f]).filter(([p]) => !skipPath(p.split("/")));
   return { name, ...(await readAll(list, progress)) };
 }
 

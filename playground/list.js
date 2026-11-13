@@ -18,7 +18,7 @@ export class VList {
     new ResizeObserver(() => this.schedule()).observe(root);
   }
 
-  set(rows, keep) {
+  set(rows) {
     this.rows = rows;
     this.gen++;
     this.tops = new Array(rows.length + 1);
@@ -33,7 +33,7 @@ export class VList {
     }
     this.size.style.height = `${this.tops[rows.length]}px`;
     this.sel = -1;
-    if (!keep) this.root.scrollTop = 0;
+    this.root.scrollTop = 0;
     this.root.removeAttribute("aria-activedescendant");
     this.paint(true);
   }
@@ -54,10 +54,10 @@ export class VList {
   }
 
   // Selects row i (a pickable row index) and keeps it in view.
-  select(i, scroll = true) {
+  select(i) {
     if (i < 0 || !this.rows[i] || !this.rows[i].pick) return;
     this.sel = i;
-    if (scroll) this.reveal(i);
+    this.reveal(i);
     this.root.setAttribute("aria-activedescendant", this.id(i));
     this.paint(true);
   }

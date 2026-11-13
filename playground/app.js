@@ -277,6 +277,8 @@ async function useSource(next, job) {
     return false;
   }
   if (gen !== mine) return false;
+  // Stop throws away a load whose reader did not take the signal.
+  if (ctl.signal.aborted) data = null;
   if (!data) {
     loading = null;
     $("#dstat").textContent = "";
