@@ -30,6 +30,11 @@ class Budget {
   }
 }
 
+function loaded(files, left) {
+  files.sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  return { files, bytes: files.reduce((n, [, b]) => n + b.byteLength, 0), left };
+}
+
 async function lanes(items, work) {
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(LANES, items.length) }, async () => {
@@ -108,9 +113,7 @@ export async function github({ owner, repo, ref, sub }, progress, signal) {
     progress?.(`Fetching ${done.toLocaleString()} of ${want.length.toLocaleString()} files from GitHub`, done / want.length);
   });
   if (signal?.aborted) throw new DOMException("stopped", "AbortError");
-  files.sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  const bytes = files.reduce((n, [, b]) => n + b.byteLength, 0);
-  return { files, bytes, left: { ...budget.left, failed, truncated: !!t.truncated } };
+  return loaded(files, { ...budget.left, failed, truncated: !!t.truncated });
 }
 
 async function readAll(list, progress) {
@@ -124,8 +127,7 @@ async function readAll(list, progress) {
     else budget.left.binary++;
     if (++done % 50 === 0 || done === keep.length) progress?.(`Reading ${done.toLocaleString()} of ${keep.length.toLocaleString()} files`, done / keep.length);
   });
-  files.sort((a, b) => (a[0] < b[0] ? -1 : 1));
-  return { files, bytes: files.reduce((n, [, b]) => n + b.byteLength, 0), left: budget.left };
+  return loaded(files, budget.left);
 }
 
 // The folder picker in Chromium, else <input webkitdirectory>.

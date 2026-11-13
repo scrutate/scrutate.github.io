@@ -240,7 +240,7 @@ function paintSource(note) {
   $("#src-meta").textContent = files.paths.length ? `${where}, ${plural(files.paths.length, "file")}, ${mb(files.bytes)}` : where;
   const l = files.left;
   const out = l ? (l.cap || 0) : 0;
-  $("#src-note").textContent = note ?? (out ? `${plural(out, "file")} left out: the playground holds up to ${num(CAP.files)} files and ${mb(CAP.bytes)}` : l && l.failed ? `${plural(l.failed, "file")} did not download` : l && l.truncated ? "GitHub listed only part of this repository: load one folder of it with a .../tree/BRANCH/FOLDER link" : "");
+  $("#src-note").textContent = note ?? (l && l.truncated ? "GitHub listed only part of this repository: load one folder of it with a .../tree/BRANCH/FOLDER link" : out ? `${plural(out, "file")} left out: the playground holds up to ${num(CAP.files)} files and ${mb(CAP.bytes)}` : l && l.failed ? `${plural(l.failed, "file")} did not download` : "");
 }
 
 async function useSource(next, job) {
@@ -371,7 +371,7 @@ function paintIndexState() {
 function paintIndexPanel() {
   if (IX.state === "failed") {
     // A worker that died (out of memory, most often) has lost its copy of the files.
-    const again = B.dead ? "<p>The index worker stopped, so a reload is needed to try again.</p>" : "";
+    const again = B.dead ? "<p>The index worker stopped. Load the code again, or reload the page, to try again.</p>" : "";
     return showMsg("bad", "The index did not build", `<pre>${esc(IX.error)}</pre><p>Engine A still works on this code.</p>${again}<div class="row"><button class="btn" type="button" data-cmd="grep">Use grep</button>${B.dead ? "" : '<button class="btn" type="button" data-do="reindex">Try again</button>'}</div>`);
   }
   if (IX.state === "none") {
@@ -441,7 +441,7 @@ function paintCli(sp) {
   $("#copy-cli").title = `Copy: ${cliText(sp)}`;
 }
 
-const lanes = { A: { busy: false, again: false }, B: { busy: false, again: false } };
+const jobs = { A: { busy: false, again: false }, B: { busy: false, again: false } };
 let timer = 0;
 
 function schedule(now) {
@@ -453,7 +453,7 @@ function schedule(now) {
 }
 
 function busyDot() {
-  $("#run").classList.toggle("on", lanes.A.busy || lanes.B.busy);
+  $("#run").classList.toggle("on", jobs.A.busy || jobs.B.busy);
 }
 
 async function go() {
@@ -465,7 +465,7 @@ async function go() {
     if (IX.state === "none" && module) ensureIndex();
     return paintIndexPanel();
   }
-  const lane = lanes[sp.eng];
+  const lane = jobs[sp.eng];
   if (lane.busy) {
     lane.again = true;
     return;
