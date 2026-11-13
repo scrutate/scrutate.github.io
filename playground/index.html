@@ -214,7 +214,9 @@ mark span { color: inherit !important; font-style: normal !important; }
 .vr.on .acts, .vr:hover .acts { display: inline-flex; }
 .acts button { background: var(--bg); border: 1px solid var(--line); border-radius: 5px; font: 11px var(--mono); color: var(--fg-2); padding: 0 6px; line-height: 17px; }
 .acts button:hover { border-color: var(--fg); }
-.acts kbd { border: 0; padding: 0; color: var(--muted); font-size: 10px; line-height: 1; margin-left: 2px; }
+/* the c, r and s keys act only in the result list; in the search box they type */
+.acts kbd { display: none; border: 0; padding: 0; color: var(--muted); font-size: 10px; line-height: 1; margin-left: 2px; }
+#res:focus-within .acts kbd { display: inline; }
 .rg { display: flex; align-items: center; gap: 10px; padding: 0 16px; background: var(--bg); border-top: 1px solid var(--line); font-size: 13px; }
 .rg .t { font: 600 13px var(--mono); }
 .rg .t span { color: var(--muted); font-weight: 400; }

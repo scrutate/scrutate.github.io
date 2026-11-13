@@ -99,7 +99,12 @@ async function checks(b, base, view, ok, fail) {
 
   await run("callers follow the call graph", async (p) => {
     await p.go(`${base}/playground/?c=callers&q=Index.open`);
-    return settle(p, /\d+ callers? in/);
+    const found = await settle(p, /\d+ callers? in/);
+    // A card's c, r and s keys work only in the result list; in the search box they type.
+    const hint = (focus) => p.eval(`(document.querySelector('${focus}').focus(), getComputedStyle(document.querySelector('#res .acts kbd')).display)`);
+    if ((await hint("#q")) !== "none") throw new Error("the key hints show while the search box has focus, where those keys type");
+    if ((await hint("#res")) === "none") throw new Error("the key hints are hidden while the result list has focus");
+    return found;
   });
 
   // Each command reads its own JSON fields, so each one is run once.
@@ -112,6 +117,18 @@ async function checks(b, base, view, ok, fail) {
       notes.push(await settle(p, re));
     }
     return notes.join("; ");
+  });
+
+  await run("a search with no matches empties the file view", async (p) => {
+    await p.go(`${base}/playground/?q=indexDir&m=ident`);
+    await settle(p, /\d+ match(es)? in \d+ of/);
+    await p.until("document.querySelector('#fpath').textContent !== 'No file open'", ENGINE_MS);
+    await p.eval("(() => { const q = document.querySelector('#q'); q.value = 'zzqx_not_in_this_code'; q.dispatchEvent(new Event('input')); })()");
+    const text = await settle(p, /No matches/);
+    // the file and the marks of the previous search would read as this search's answer
+    const open = await p.eval("document.querySelector('#fpath').textContent");
+    if (open !== "No file open") throw new Error(`the file view still shows ${open}`);
+    return text;
   });
 
   await run("a bad regex shows the engine's message", async (p) => {

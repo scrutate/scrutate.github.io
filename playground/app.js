@@ -600,6 +600,7 @@ function showGrep(sp, r) {
   if (!n) {
     stats(`No matches in ${plural(sum.files_searched, "file")}, ${ms(sum.elapsed_ms)}${warn}`);
     view = { kind: "none" };
+    closeFile();
     return showMsg("", "No matches", `<p>Nothing matches <code>${esc(sp.cli.at(-1))}</code> with these options.</p>${suggestions(sp)}`);
   }
   const cut = sum && sum.cancelled;
@@ -693,6 +694,7 @@ function showIndex(sp, r) {
   if (none) {
     stats(`Nothing found${took}`);
     view = { kind: "none" };
+    closeFile();
     const what = sp.c === "search" ? `Nothing in the index matches <code>${esc(sp.q)}</code>.` : r.error ? esc(r.error) : `No definition named <code>${esc(sp.q)}</code> is in the index.`;
     return showMsg("", "Nothing found", `<p>${what}</p>${suggestions(sp)}`);
   }
@@ -862,6 +864,13 @@ async function fileText(path) {
     texts.set(path, r.text);
   }
   return r.text;
+}
+
+// The previous search's file and marks would read as this search's answer.
+function closeFile() {
+  previewSeq++;
+  S.open = "";
+  paintFileHead(null);
 }
 
 function paintFileHead(row, lines) {
