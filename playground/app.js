@@ -7,7 +7,6 @@ const SAMPLE = "samples/scrutate-src.json";
 const ENGINE = "scrutate.wasm";
 // The decoded size of the engine build this page was made with. Only used for the progress bar
 // when the server compresses the download and so cannot say how big the decoded file is.
-const ENGINE_GUESS = 85.2e6;
 const GREP_CAP = 5000;
 const PREWARM = 20e6;
 const enc = new TextEncoder();
@@ -99,6 +98,7 @@ function writeUrl() {
 // ---- engine workers ----------------------------------------------------------------------
 
 let module = null;
+let engineMeta = null;
 let version = "";
 let ready = false;
 
@@ -162,9 +162,12 @@ const B = new Engine();
 
 async function fetchEngine() {
   try {
-    const res = await fetch(ENGINE);
+    // engine.json, written by the deploy next to the wasm, holds its real size: a compressed
+    // response's content-length is not, and the stream counts uncompressed bytes.
+    const [res, meta] = await Promise.all([fetch(ENGINE), fetch("engine.json").then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+    engineMeta = meta;
     if (!res.ok) throw new Error(`${ENGINE} answered HTTP ${res.status}`);
-    const total = (!res.headers.get("content-encoding") && Number(res.headers.get("content-length"))) || 0;
+    const total = (meta && meta.bytes) || (!res.headers.get("content-encoding") && Number(res.headers.get("content-length"))) || 0;
     let compiling;
     if (WebAssembly.compileStreaming && res.body) {
       const [a, b] = res.body.tee();
@@ -195,7 +198,8 @@ async function fetchEngine() {
   }
   ready = true;
   $("#ver").innerHTML = `<b>${esc(version || "scrutate")}</b> wasm32-wasip1`;
-  $("#ver").title = "The scrutate binary compiled to wasm32-wasip1, one thread, run in Web Workers";
+  const from = engineMeta && engineMeta.scrutate ? `Built from scrutate ${engineMeta.ref || "commit"} at ${engineMeta.scrutate.slice(0, 7)}. ` : "";
+  $("#ver").title = `${from}The scrutate binary compiled to wasm32-wasip1, one thread, run in Web Workers`;
   if (files.bytes <= PREWARM || CMDS[S.c].eng === "B") ensureIndex();
   go();
 }
@@ -527,11 +531,11 @@ function paintBoot() {
     stats("Loading the code");
     return showMsg("", "Loading the code", `<div class="meter wait"><i></i></div>`);
   }
-  const total = boot.total || ENGINE_GUESS;
-  const frac = Math.min(boot.done ? 1 : 0.99, boot.got / total);
-  const amount = boot.done ? `${mb(boot.got)}, starting` : boot.total ? `${mb(boot.got)} of ${mb(boot.total)}` : `${mb(boot.got)} of about ${mb(ENGINE_GUESS)}`;
+  const frac = boot.done ? 1 : boot.total ? Math.min(0.99, boot.got / boot.total) : 0;
+  const amount = boot.done ? `${mb(boot.got)}, starting` : boot.total ? `${mb(boot.got)} of ${mb(boot.total)}` : mb(boot.got);
+  const meter = boot.total || boot.done ? `<div class="meter"><i style="width:${(frac * 100).toFixed(1)}%"></i></div>` : `<div class="meter wait"><i></i></div>`;
   stats(`Loading the engine: ${amount}`);
-  showMsg("", "Loading the engine", `<div class="meter"><i style="width:${(frac * 100).toFixed(1)}%"></i></div><p class="mono">${esc(amount)}</p><p>The whole scrutate binary, compiled to WebAssembly, with both engines and the models it ranks with. It downloads once, then your browser keeps it.</p><p>Your search runs the moment it is ready. Meanwhile, here are the ${plural(files.paths.length, "file")} it will search.</p>`, true);
+  showMsg("", "Loading the engine", `${meter}<p class="mono">${esc(amount)}</p><p>The whole scrutate binary, compiled to WebAssembly, with both engines and the models it ranks with. It downloads once, then your browser keeps it.</p><p>Your search runs the moment it is ready. Meanwhile, here are the ${plural(files.paths.length, "file")} it will search.</p>`, true);
   if (list.rows.length !== files.paths.length || list.rows[0]?.t !== "file") {
     list.set(files.paths.map((p) => ({ t: "file", h: 24, pick: true, cls: "fl", path: p, label: esc(p) })));
   }
