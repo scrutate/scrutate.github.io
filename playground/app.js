@@ -5,8 +5,6 @@ import { CAP, sample, parseRepo, github, pickFolder, fromInput, fromDrop } from 
 const $ = (s) => document.querySelector(s);
 const SAMPLE = "samples/scrutate-src.json";
 const ENGINE = "scrutate.wasm";
-// The decoded size of the engine build this page was made with. Only used for the progress bar
-// when the server compresses the download and so cannot say how big the decoded file is.
 const GREP_CAP = 5000;
 const PREWARM = 20e6;
 const enc = new TextEncoder();
@@ -51,9 +49,8 @@ const EXAMPLES = {
 };
 const REPOS = ["BurntSushi/walkdir", "pallets/click", "expressjs/express", "gorilla/mux"];
 
-// ---- state and the URL -------------------------------------------------------------------
-
-const S = { c: "grep", q: "", m: "regex", f: 1, i: false, w: false, g: "", k: 8, n: 0, open: "" };
+const K_DEFAULT = 8;
+const S = { c: "grep", q: "", m: "regex", f: 1, i: false, w: false, g: "", k: K_DEFAULT, n: 0, open: "" };
 let src = { kind: "sample" };
 {
   const p = new URLSearchParams(location.search);
@@ -83,7 +80,7 @@ function writeUrl() {
     if (S.w) p.set("w", "1");
     if (S.g) p.set("g", S.g);
   }
-  if (S.c === "search" && S.k !== 8) p.set("k", S.k);
+  if (S.c === "search" && S.k !== K_DEFAULT) p.set("k", S.k);
   if (S.n && LIMIT[S.c]) p.set("n", S.n);
   if (src.kind === "github") {
     p.set("repo", `${src.owner}/${src.repo}`);
@@ -94,8 +91,6 @@ function writeUrl() {
   const s = p.toString();
   history.replaceState(null, "", `${location.pathname}${s ? `?${s}` : ""}`);
 }
-
-// ---- engine workers ----------------------------------------------------------------------
 
 let module = null;
 let engineMeta = null;
@@ -222,8 +217,6 @@ function engineFailed(e) {
   paintBoot();
 }
 
-// ---- sources -----------------------------------------------------------------------------
-
 let gen = 0;
 let files = { name: "", paths: [], bytes: 0, commit: "", left: null };
 const texts = new Map();
@@ -314,8 +307,6 @@ async function useSource(next, job) {
 const loadSample = () => useSource({ kind: "sample" }, (status) => sample(SAMPLE, status));
 const loadRepo = (r) => useSource({ kind: "github", ...r }, (status, signal) => github(r, status, signal));
 
-// ---- the index ---------------------------------------------------------------------------
-
 const IX = { state: "none", t0: 0, ms: 0, done: 0, total: 0, phase: "", stats: null, error: "", summary: "" };
 let ixTimer = 0;
 
@@ -386,8 +377,6 @@ function paintIndexPanel() {
   $("#stats").textContent = "Waiting for the index";
 }
 
-// ---- running a command -------------------------------------------------------------------
-
 function quote(s) {
   return /^[\w./:@%+=,-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
 }
@@ -403,11 +392,18 @@ function grepFlags() {
   return a;
 }
 
+function indexFlags(c) {
+  const a = [];
+  if (c === "search" && S.k !== K_DEFAULT) a.push("-k", String(S.k));
+  if (S.n && LIMIT[c]) a.push(LIMIT[c][0], String(S.n));
+  return a;
+}
+
 function spec(flagsOnly) {
   const q = S.c === "grep" ? S.q : S.q.trim();
   const c = S.c;
   if (flagsOnly) {
-    const extra = c === "grep" ? grepFlags() : c === "search" && S.k !== 8 ? ["-k", String(S.k)] : S.n && LIMIT[c] ? [LIMIT[c][0], String(S.n)] : [];
+    const extra = c === "grep" ? grepFlags() : indexFlags(c);
     return { cli: ["scrutate", c, ...extra] };
   }
   if (!q) return { c, eng: CMDS[c].eng, empty: true, cli: ["scrutate", c] };
@@ -416,9 +412,7 @@ function spec(flagsOnly) {
     const pat = q.startsWith("-") ? ["-e", q] : [q];
     return { c, eng: "A", args: ["grep", "--json", "--max-results", String(GREP_CAP), ...flags, ...pat, "/w"], parse: "grep", cli: ["scrutate", "grep", ...flags, ...pat] };
   }
-  const extra = [];
-  if (c === "search" && S.k !== 8) extra.push("-k", String(S.k));
-  if (S.n && LIMIT[c]) extra.push(LIMIT[c][0], String(S.n));
+  const extra = indexFlags(c);
   const tail = q.startsWith("-") ? ["--", q] : [q];
   return { c, eng: "B", q, args: [c, "--root", "/w", "--json", ...extra, ...tail], parse: "doc", cli: ["scrutate", c, ...extra, ...tail] };
 }
@@ -482,8 +476,6 @@ async function go() {
     }
   }
 }
-
-// ---- results -----------------------------------------------------------------------------
 
 const list = new VList($("#res"), renderRow);
 const code = new CodeView($("#code"));
@@ -752,8 +744,6 @@ function splitOpen(s) {
   return [m[1], m[2] ? Number(m[2]) : 0];
 }
 
-// ---- row rendering -----------------------------------------------------------------------
-
 let fit = 60;
 
 // Shifts a long line so its first mark shows in a row as wide as the list.
@@ -846,13 +836,12 @@ function renderRow(row) {
   return "";
 }
 
-// ---- the file pane -----------------------------------------------------------------------
-
 async function fileText(path) {
   if (texts.has(path)) return texts.get(path);
   const eng = A.idle || !B.idle ? A : B;
+  const mine = gen;
   const r = await eng.call({ type: "file", path });
-  if (r.text != null) {
+  if (r.text != null && mine === gen) {
     if (texts.size > 24) texts.delete(texts.keys().next().value);
     texts.set(path, r.text);
   }
@@ -930,8 +919,6 @@ function pickRow(i, focus) {
   writeUrl();
   preview(row, focus);
 }
-
-// ---- controls ----------------------------------------------------------------------------
 
 function paintControls() {
   $("#q").value = S.q;
@@ -1143,8 +1130,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// ---- copy, share, theme, split -----------------------------------------------------------
-
 function toast(text) {
   const t = $("#toast");
   t.textContent = text;
@@ -1234,8 +1219,6 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", paintThem
   });
 }
 
-// ---- the source dialog and drag and drop -------------------------------------------------
-
 function openSource() {
   $("#derr").textContent = "";
   if (!$("#dlg").open) $("#dlg").showModal();
@@ -1304,8 +1287,6 @@ $("#dir").addEventListener("change", (e) => {
   });
 }
 
-// ---- start -------------------------------------------------------------------------------
-
 paintTheme();
 paintControls();
 paintSource("Loading the code");
@@ -1316,7 +1297,7 @@ if (src.kind === "github") {
     if (ok || files.paths.length) return;
     const why = lastError;
     src = { kind: "sample" };
-    if (await loadSample()) paintSource(`${why} Showing the sample instead.`);
+    if (await loadSample()) paintSource(`${why ? `${why} ` : ""}Showing the sample instead.`);
   });
 } else loadSample();
 fetchEngine();

@@ -177,14 +177,14 @@ function doc(r) {
       data = r.stdout;
     }
   }
-  return { data, error: r.code > 1 || r.code < 0 ? p.message || `exit code ${r.code}` : "", warnings: p.warnings, note: r.code <= 1 ? r.stderr.trim() : "" };
+  return { data, error: r.code > 1 || r.code < 0 ? p.message || `exit code ${r.code}` : "", warnings: p.warnings };
 }
 
 async function handle(m) {
   if (m.type === "engine") {
     engine = m.module || (await compile(m.url));
     postMessage({ type: "engine" });
-    for (const w of waiting.splice(0)) handle(w);
+    for (const w of waiting.splice(0)) dispatch(w);
   } else if (m.type === "files") {
     postMessage({ type: "files", gen: m.gen, ...load(m.files) });
   } else if (m.type === "run") {
@@ -204,6 +204,8 @@ async function handle(m) {
   }
 }
 
-onmessage = ({ data: m }) => {
+function dispatch(m) {
   handle(m).catch((e) => postMessage({ type: "fatal", for: m.type, id: m.id, message: String(e && e.message ? e.message : e) }));
-};
+}
+
+onmessage = ({ data: m }) => dispatch(m);
