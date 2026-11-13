@@ -1,6 +1,10 @@
 // Gets code into the page: the bundled sample, a public GitHub repository, or a local folder.
-// Every loader returns { files: [[path, bytes or text]], bytes, left } and reads nothing it skips.
+// Every loader returns { name, files: [[path, bytes or text]], bytes, left }, or null when the
+// person picked nothing, and reads nothing it skips.
 export const CAP = { files: 4000, bytes: 60e6, file: 1e6 };
+// The folder the engine sees the files in.
+export const ROOT = "/w";
+const LIST_CAP = 50000;
 const SKIP_DIRS = new Set([".git", ".hg", ".svn", "node_modules", "bower_components", ".scrutate", "target", "dist", "build", ".next", ".nuxt", "__pycache__", ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache", ".gradle", ".idea", ".vscode", "Pods", "DerivedData", ".terraform", "coverage", ".cache"]);
 const BINARY = /\.(png|jpe?g|gif|webp|avif|bmp|tiff?|ico|icns|psd|pdf|zip|gz|tgz|bz2|xz|zst|7z|rar|jar|war|ear|class|so|dylib|dll|exe|o|a|lib|obj|wasm|woff2?|ttf|otf|eot|mp[34]|m4a|mov|avi|mkv|webm|ogg|wav|flac|sqlite3?|db|bin|dat|pyc|pyo|npy|npz|pkl|onnx|pt|safetensors|lockb|DS_Store)$/i;
 const LANES = 16;
@@ -123,7 +127,7 @@ async function readAll(list, progress) {
 }
 
 // The folder picker in Chromium, else <input webkitdirectory>.
-export async function pickFolder(input, progress) {
+export async function pickFolder(progress) {
   if (window.showDirectoryPicker) {
     const dir = await window.showDirectoryPicker({ id: "scrutate-playground", mode: "read" });
     const list = [];
@@ -135,7 +139,7 @@ export async function pickFolder(input, progress) {
           const file = await h.getFile();
           list.push([`${prefix}${name}`, file.size, async () => file]);
         }
-        if (list.length > 50000) return;
+        if (list.length > LIST_CAP) return;
       }
     }
     progress?.(`Listing ${dir.name}`);
@@ -173,7 +177,7 @@ export async function fromDrop(dt, progress) {
         kids.push(...batch);
       }
       for (const k of kids) {
-        if (list.length > 50000) return;
+        if (list.length > LIST_CAP) return;
         await walk(k, `${prefix}${e.name}/`);
       }
     }

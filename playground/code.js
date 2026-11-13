@@ -31,7 +31,7 @@ const GRAMMAR = {
 };
 const NAMES = { rust: "Rust", python: "Python", javascript: "JavaScript", go: "Go", java: "Java", cpp: "C or C++", json: "JSON", css: "CSS", html: "HTML", markdown: "Markdown", yaml: "YAML", php: "PHP", xml: "XML" };
 const HASH = new Set("sh bash zsh fish toml ini cfg conf rb pl pm r nix ps1 tf hcl mk cmake gd jl ex exs nim cr coffee graphql properties dockerfile makefile gitignore editorconfig env".split(" "));
-const SLASH = new Set("cs kt kts swift scala dart zig sol groovy gradle gleam v odin glsl hlsl proto d fs fsx m mm ts2 qml bicep prisma jsonnet".split(" "));
+const SLASH = new Set("cs kt kts swift scala dart zig sol groovy gradle gleam v odin glsl hlsl proto d fs fsx m mm qml bicep prisma jsonnet".split(" "));
 const DASH = new Set("lua sql hs elm adb ads vhd vhdl".split(" "));
 const SEMI = new Set("lisp el scm rkt clj cljs edn s asm ll".split(" "));
 const KW = new Set(("if else elif elsif unless for foreach while loop do done return fn func function def defn fun class struct enum impl trait interface type let var val const static pub public private protected use import from export module mod package namespace as in of is not and or new match case when switch break continue then fi esac end begin local self this super true false null nil none None True False void yield async await try catch except finally throw raise where with").split(" "));

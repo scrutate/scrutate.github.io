@@ -1,6 +1,8 @@
 // Runs scrutate's wasm on a file tree held in memory. The page starts two of these: one for
-// grep and file reads, one for the index, so a long index build never blocks a search.
+// grep, one for the index, so a long index build never blocks a search. Both hold every file,
+// and file reads go to whichever is free.
 import { WASI, File, OpenFile, ConsoleStdout, PreopenDirectory, Directory, OpenDirectory, wasi } from "./vendor/browser_wasi_shim/index.js";
+import { ROOT } from "./load.js";
 
 // The shim has no readlink, and std's canonicalize calls it on each part of a path (the index
 // does). Nothing in this tree is a link, so an existing path answers EINVAL, as POSIX does.
@@ -9,7 +11,6 @@ OpenDirectory.prototype.path_readlink = function (path) {
   return { ret: ret === 0 ? wasi.ERRNO_INVAL : ret, data: null };
 };
 
-const ROOT = "/w";
 const LINE_CAP = 2000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();

@@ -1,6 +1,6 @@
 import { VList } from "./list.js";
 import { CodeView, esc, lineHTML, language } from "./code.js";
-import { CAP, sample, parseRepo, github, pickFolder, fromInput, fromDrop } from "./load.js";
+import { CAP, ROOT, sample, parseRepo, github, pickFolder, fromInput, fromDrop } from "./load.js";
 
 const $ = (s) => document.querySelector(s);
 const SAMPLE = "samples/scrutate-src.json";
@@ -25,6 +25,7 @@ const CMDS = {
   similar: { eng: "B", about: "Definitions that look like this one.", hint: "a name, like FuzzyMatcher.new" },
 };
 const LIMIT = { symbol: ["--limit", 20], callers: ["--limit", 30], callees: ["--limit", 40], refs: ["--max-results", 200] };
+const MAX_N = 2000;
 const EXAMPLES = {
   sample: {
     grep: [
@@ -319,7 +320,7 @@ async function ensureIndex() {
   paintIndexState();
   let tail = "";
   try {
-    const r = await B.call({ type: "run", args: ["index", "--root", "/w"], live: true }, (text) => {
+    const r = await B.call({ type: "run", args: ["index", "--root", ROOT], live: true }, (text) => {
       tail = (tail + text).slice(-600);
       const a = [...tail.matchAll(/indexing (\d+)\/(\d+)/g)].at(-1);
       const t = [...tail.matchAll(/text index: (\d+)\/(\d+)/g)].at(-1);
@@ -330,7 +331,7 @@ async function ensureIndex() {
     if (r.code !== 0) throw new Error(r.stderr.replace(/\r/g, "\n").split("\n").filter((l) => l.trim() && !l.startsWith("[scrutate]")).join("\n") || `exit code ${r.code}`);
     IX.ms = r.ms;
     IX.summary = r.stdout.trim();
-    const s = await B.call({ type: "run", args: ["stats", "--root", "/w"] });
+    const s = await B.call({ type: "run", args: ["stats", "--root", ROOT] });
     if (gen !== mine) return;
     try {
       IX.stats = JSON.parse(s.stdout);
@@ -410,11 +411,11 @@ function spec(flagsOnly) {
   if (c === "grep") {
     const flags = grepFlags();
     const pat = q.startsWith("-") ? ["-e", q] : [q];
-    return { c, eng: "A", args: ["grep", "--json", "--max-results", String(GREP_CAP), ...flags, ...pat, "/w"], parse: "grep", cli: ["scrutate", "grep", ...flags, ...pat] };
+    return { c, eng: "A", args: ["grep", "--json", "--max-results", String(GREP_CAP), ...flags, ...pat, ROOT], parse: "grep", cli: ["scrutate", "grep", ...flags, ...pat] };
   }
   const extra = indexFlags(c);
   const tail = q.startsWith("-") ? ["--", q] : [q];
-  return { c, eng: "B", q, args: [c, "--root", "/w", "--json", ...extra, ...tail], parse: "doc", cli: ["scrutate", c, ...extra, ...tail] };
+  return { c, eng: "B", q, args: [c, "--root", ROOT, "--json", ...extra, ...tail], parse: "doc", cli: ["scrutate", c, ...extra, ...tail] };
 }
 
 function cliText(sp) {
@@ -603,12 +604,15 @@ function showGrep(sp, r) {
   present(rows);
 }
 
+const OWNER_SEP = /::|\.|#|->/;
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 function lastSeg(name) {
-  return name.split(/::|\.|#|->/).filter(Boolean).at(-1) || name;
+  return name.split(OWNER_SEP).filter(Boolean).at(-1) || name;
 }
 
 function wordAt(text, word, from = 0) {
-  const re = new RegExp(`(?<![\\w$])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w$])`, "g");
+  const re = new RegExp(`(?<![\\w$])${reEsc(word)}(?![\\w$])`, "g");
   re.lastIndex = from;
   const m = re.exec(text);
   return m ? m.index : -1;
@@ -617,9 +621,9 @@ function wordAt(text, word, from = 0) {
 // Where some lines call the function a callers query names: as Owner::name (or . # ->) when the
 // query has an owner and any line spells it so, else as the bare word. Columns per line.
 function sites(lines, q) {
-  const parts = q.trim().split(/::|\.|#|->/).filter(Boolean);
+  const parts = q.trim().split(OWNER_SEP).filter(Boolean);
   const name = parts.at(-1) || q.trim();
-  const e = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const e = reEsc;
   const scan = (re) => lines.map((l) => [...(l || "").matchAll(re)].map((m) => m.index + m[0].length - name.length));
   let at = parts.length > 1 ? scan(new RegExp(`(?<![\\w$])${e(parts.at(-2))}\\s*(?:::|\\.|#|->)\\s*${e(name)}(?![\\w$])`, "g")) : null;
   if (!at || !at.some((a) => a.length)) at = scan(new RegExp(`(?<![\\w$])${e(name)}(?![\\w$])`, "g"));
@@ -661,7 +665,8 @@ function showIndex(sp, r) {
       rows.push({ t: "rg", group: true, h: 32, cls: "rg", title: "Unresolved", sub: "uses the resolver could not tie to one definition", n: d.unresolved.length });
       for (const u of d.unresolved) rows.push(refRow(u, name, u.reason, null));
     }
-    if (d.truncated) rows.push(noteRow(`Stopped at ${num(S.n || 200)} uses.`, (S.n || 200) < 2000 ? "more" : ""));
+    const cap = S.n || LIMIT.refs[1];
+    if (d.truncated) rows.push(noteRow(`Stopped at ${num(cap)} uses.`, cap < MAX_N ? "more" : ""));
   } else if (sp.c === "callees" && d) {
     none = !d.resolved.length && !d.external.length;
     head = `<b>${num(d.resolved.length)}</b> in the repository, ${num(d.external.length)} from outside it`;
@@ -945,7 +950,7 @@ function paintControls() {
 
 function paintExamples() {
   const set = (src.kind === "sample" ? EXAMPLES.sample : EXAMPLES.other)[S.c] || [];
-  $("#ex").innerHTML = set.length ? `<span>Try</span> ${set.map((e, k) => `<button type="button" data-ex="${k}">${esc(e.q)}${e.t ? ` <span>${esc(e.t)}</span>` : ""}</button>`).join("")}` : `<span>Pick a name from a search result, or press c, r or s on a selected result.</span>`;
+  $("#ex").innerHTML = set.length ? `<span>Try</span> ${set.map((e, k) => `<button type="button" data-ex="${k}">${esc(e.q)}${e.t ? ` <span>${esc(e.t)}</span>` : ""}</button>`).join("")}` : `<span>Pick a name from a search result, or press c, r, s or d on a selected result.</span>`;
 }
 
 function setCmd(c, q) {
@@ -1066,7 +1071,7 @@ function act(what) {
 function rowAction(what, row) {
   if (what === "more") {
     const base = LIMIT[S.c] ? LIMIT[S.c][1] : 30;
-    S.n = Math.min(2000, Math.max(base, S.n || base) * 5);
+    S.n = Math.min(MAX_N, Math.max(base, S.n || base) * 5);
     return schedule(true);
   }
   if (!row || row.t !== "card") return;
@@ -1083,6 +1088,7 @@ $("#res").addEventListener("click", (e) => {
   }
   if (el) pickRow(Number(el.dataset.i), narrow.matches);
 });
+const KEYS = { c: "callers", r: "refs", s: "similar", d: "symbol" };
 $("#res").addEventListener("keydown", (e) => {
   const page = list.pageSize();
   const moves = { ArrowDown: 1, ArrowUp: -1, PageDown: page, PageUp: -page, Home: -Infinity, End: Infinity };
@@ -1095,9 +1101,9 @@ $("#res").addEventListener("keydown", (e) => {
   } else if (e.key === "Escape") {
     e.preventDefault();
     $("#q").focus();
-  } else if (!e.metaKey && !e.ctrlKey && !e.altKey && { c: "callers", r: "refs", s: "similar", d: "symbol" }[e.key]) {
+  } else if (!e.metaKey && !e.ctrlKey && !e.altKey && KEYS[e.key]) {
     const row = list.rows[list.sel];
-    const what = { c: "callers", r: "refs", s: "similar", d: "symbol" }[e.key];
+    const what = KEYS[e.key];
     if (row && row.t === "card" && (what === "symbol" || actsFor(row).includes(what))) {
       e.preventDefault();
       rowAction(what, row);
@@ -1227,6 +1233,7 @@ function openSource() {
 }
 $("#src").addEventListener("click", openSource);
 $("#use-sample").addEventListener("click", loadSample);
+$("#gh-cap").textContent = `up to ${num(CAP.files)} files and ${num(CAP.bytes / 1e6)} MB, ${num(CAP.file / 1e6)} MB a file`;
 $("#gh-ex").insertAdjacentHTML("beforeend", REPOS.map((r) => `<button class="chip" type="button" data-repo="${r}">${r}</button>`).join(""));
 $("#gh-ex").addEventListener("click", (e) => {
   const b = e.target.closest("[data-repo]");
@@ -1247,7 +1254,7 @@ $("#pick").addEventListener("click", async () => {
   if (!window.showDirectoryPicker) return $("#dir").click();
   useSource({ kind: "local" }, async (status) => {
     try {
-      return await pickFolder(null, status);
+      return await pickFolder(status);
     } catch (e) {
       if (e.name === "AbortError") return null;
       throw e;

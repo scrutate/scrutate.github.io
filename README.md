@@ -66,7 +66,7 @@ at the site, serve the assembled folder with any static server, for example
 ## Playground
 
 `playground/` runs scrutate in the browser: the CLI compiled to `wasm32-wasip1`, run in two Web
-Workers (one for grep and file reads, one for the index) through
+Workers (one for grep, one for the index, and file reads in whichever is free) through
 [`@bjorn3/browser_wasi_shim`](https://github.com/bjorn3/browser_wasi_shim), with the files in
 memory. `worker.js` adds the one call the shim lacks that scrutate needs (`path_readlink`, which
 Rust's `canonicalize` uses).
