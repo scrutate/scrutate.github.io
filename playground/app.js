@@ -1,6 +1,7 @@
 import { VList } from "./list.js";
 import { CodeView, esc, lineHTML, language } from "./code.js";
 import { CAP, ROOT, sample, parseRepo, cleanPath, github, pickFolder, fromInput, fromDrop } from "./load.js";
+import { initTour } from "./tour.js";
 
 const $ = (s) => document.querySelector(s);
 const SAMPLE = "samples/scrutate-src.json";
@@ -476,7 +477,10 @@ async function go() {
   const mine = tree;
   try {
     const r = await (sp.eng === "A" ? A : B).call({ type: "run", args: sp.args, parse: sp.parse });
-    if (mine === tree && JSON.stringify(spec().args) + tree === key) await show(sp, r);
+    if (mine === tree && JSON.stringify(spec().args) + tree === key) {
+      await show(sp, r);
+      document.dispatchEvent(new Event("scrutate:shown"));
+    }
   } catch (e) {
     if (mine === tree && e.message !== "stopped") showMsg("bad", "The engine stopped", `<pre>${esc(e.message)}</pre><p>${sp.eng === "B" ? "Load the code again, or reload the page" : "Reload the page"} to start it again.</p>`);
   } finally {
@@ -968,8 +972,15 @@ function paintControls() {
   paintCli(spec());
 }
 
-function examples() {
-  return (src.kind === "sample" ? EXAMPLES.sample : EXAMPLES.other)[S.c] || [];
+function examples(c = S.c) {
+  return (src.kind === "sample" ? EXAMPLES.sample : EXAMPLES.other)[c] || [];
+}
+
+function useExample(ex) {
+  Object.assign(S, { q: ex.q, open: "", n: 0 });
+  if (S.c === "grep") Object.assign(S, { m: ex.m || "regex", f: ex.f || 1, i: false, w: false, g: ex.g || "" });
+  paintControls();
+  schedule(true);
 }
 
 function paintExamples() {
@@ -1050,11 +1061,7 @@ $("#g").addEventListener("input", (e) => {
 $("#ex").addEventListener("click", (e) => {
   const b = e.target.closest("[data-ex]");
   if (!b) return;
-  const ex = examples()[Number(b.dataset.ex)];
-  Object.assign(S, { q: ex.q, open: "", n: 0 });
-  if (S.c === "grep") Object.assign(S, { m: ex.m || "regex", f: ex.f || 1, i: false, w: false, g: ex.g || "" });
-  paintControls();
-  schedule(true);
+  useExample(examples()[Number(b.dataset.ex)]);
 });
 
 // Buttons inside the message panel and the result rows.
@@ -1321,6 +1328,13 @@ $("#dir").addEventListener("change", (e) => {
 paintTheme();
 paintControls();
 paintSource("Loading the code");
+initTour({
+  examples,
+  run(c, ex) {
+    S.c = c;
+    useExample(ex);
+  },
+});
 paintBoot();
 if (src.kind === "github") {
   $("#gh").value = src.sub ? `https://github.com/${src.owner}/${src.repo}/tree/${src.ref || "HEAD"}/${src.sub}` : `${src.owner}/${src.repo}${src.ref ? `@${src.ref}` : ""}`;

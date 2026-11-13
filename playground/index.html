@@ -29,6 +29,7 @@ try { const t = localStorage.getItem("scrutate-theme"); if (t === "light" || t =
 <link rel="modulepreload" href="code.js">
 <link rel="modulepreload" href="list.js">
 <link rel="modulepreload" href="load.js">
+<link rel="modulepreload" href="tour.js">
 <link rel="modulepreload" href="vendor/lezer/highlight/index.js">
 <link rel="modulepreload" href="vendor/lezer/common/index.js">
 <style>
@@ -39,6 +40,7 @@ try { const t = localStorage.getItem("scrutate-theme"); if (t === "light" || t =
   --hl: #d9ff3d; --on-hl: #0c0c0e; --hl-edge: #d9ff3d; --bad: #ff8a7a;
   --row: #19191d; --on: #24242b; --hit: #141418; --in: #17171b; --at: #26262c;
   --k: #e9a483; --s: #a3d1b5; --c: #8a867d; --n: #cfa7e0; --t: #93c0d8; --f: #f2eee3; --p: #d6d2c6; --m: #d9c592; --h: #f2eee3;
+  --scrim: rgba(0, 0, 0, .72); --lift: 0 16px 48px rgba(0, 0, 0, .5);
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --split: 46%;
@@ -50,6 +52,7 @@ try { const t = localStorage.getItem("scrutate-theme"); if (t === "light" || t =
   --hl: #d9ff3d; --on-hl: #0c0c0e; --hl-edge: #a9c700; --bad: #a8291c;
   --row: #ebe6d9; --on: #ddd6c4; --hit: #ece7da; --in: #e9e3d4; --at: #ddd6c4;
   --k: #9c3d1c; --s: #22663f; --c: #6b675e; --n: #74389a; --t: #1d5c80; --f: #0c0c0e; --p: #2b2a27; --m: #735a0e; --h: #0c0c0e;
+  --scrim: rgba(12, 12, 14, .45); --lift: 0 14px 40px rgba(12, 12, 14, .24);
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
@@ -59,6 +62,7 @@ try { const t = localStorage.getItem("scrutate-theme"); if (t === "light" || t =
     --hl: #d9ff3d; --on-hl: #0c0c0e; --hl-edge: #a9c700; --bad: #a8291c;
     --row: #ebe6d9; --on: #ddd6c4; --hit: #ece7da; --in: #e9e3d4; --at: #ddd6c4;
     --k: #9c3d1c; --s: #22663f; --c: #6b675e; --n: #74389a; --t: #1d5c80; --f: #0c0c0e; --p: #2b2a27; --m: #735a0e; --h: #0c0c0e;
+    --scrim: rgba(12, 12, 14, .45); --lift: 0 14px 40px rgba(12, 12, 14, .24);
   }
 }
 * { box-sizing: border-box; }
@@ -302,8 +306,38 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); opacity: 0; z-index: 40; background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; pointer-events: none; transition: opacity .15s, transform .15s; max-width: calc(100vw - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
+/* tour */
+.tour { position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.tour.on { opacity: 1; }
+.tour-dim { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tour-dim path { fill: var(--scrim); fill-rule: evenodd; }
+.tour.on .tour-dim path { pointer-events: visiblePainted; }
+.tour-dim rect { fill: none; stroke: var(--fg); stroke-width: 2; }
+.tour-card { position: absolute; left: 0; top: 0; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; background: var(--bg); color: var(--fg); border: 1px solid var(--line-2); border-radius: 12px; padding: 14px 16px 12px; box-shadow: var(--lift); }
+.tour.on .tour-card { pointer-events: auto; }
+.tour-card:focus { outline: none; }
+.tour-card.move { transition: transform .26s cubic-bezier(.2, .8, .2, 1); }
+.tour-card.in > :not(.tour-row) { animation: tour-in .22s ease-out; }
+@keyframes tour-in { from { opacity: 0; transform: translateY(3px); } }
+.tour-top { display: flex; align-items: center; justify-content: space-between; font: 12px var(--mono); color: var(--muted); }
+.tour-dots { display: flex; gap: 5px; }
+.tour-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--line-2); transition: width .2s; }
+.tour-dots i.done { background: var(--muted); }
+.tour-dots i.on { width: 16px; background: var(--fg); }
+.tour-card h2 { font-size: 16px; margin: 8px 0 4px; }
+.tour-card p { margin: 0 0 10px; color: var(--fg-2); }
+.tour-card code { font-size: 12.5px; }
+.tour-card .tour-got { font: 12.5px/1.6 var(--mono); background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 38px; overflow-wrap: anywhere; }
+.tour-got b { color: var(--fg); font-weight: 600; }
+.tour-url { word-break: break-all; }
+.tour-row { display: flex; align-items: center; gap: 8px; }
+.tour-skip { margin-right: auto; background: none; border: 0; padding: 4px 0; font-size: 13px; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.tour-skip:hover { color: var(--fg); }
+
 @media (max-width: 1100px) {
   .nav .opt { display: none; }
+  #tour-btn span { display: none; }
+  #tour-btn { padding: 6px 8px; }
 }
 @media (max-width: 760px) {
   body { height: auto; overflow: visible; display: block; }
@@ -352,6 +386,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
     <a class="opt" href="../">Home</a>
     <a class="opt" href="https://github.com/scrutate/scrutate/blob/main/docs/CLI.md">Command line</a>
   </nav>
+  <button class="btn" type="button" id="tour-btn" aria-label="Take the tour" title="Take the tour"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><path d="M6.6 5.6v4.8L10.5 8z" fill="currentColor" stroke-linejoin="round"/></svg><span>Take the tour</span></button>
   <button class="btn" type="button" id="share" title="Copy a link to this search (Ctrl or Cmd + S)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1.3-1.3a2.6 2.6 0 0 1 3.7 3.7L10.7 8.2M9 11.5l-1.3 1.3a2.6 2.6 0 0 1-3.7-3.7L5.3 7.8"/></svg><span>Copy link</span></button>
   <button class="icon" id="theme" type="button" aria-label="Switch to the light theme">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg>
@@ -468,6 +503,21 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 </dialog>
 <div class="drop" id="drop" hidden><div><b>Drop a folder to search it</b><span>It is read in this tab and never uploaded.</span></div></div>
 <div class="toast" id="toast" role="status"></div>
+<div class="tour" id="tour" hidden>
+  <svg class="tour-dim" aria-hidden="true"><path/><rect rx="10"/></svg>
+  <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-t" aria-describedby="tour-p" tabindex="-1">
+    <div class="tour-top"><span id="tour-n" aria-hidden="true"></span><span class="tour-dots" id="tour-dots" aria-hidden="true"></span></div>
+    <h2 id="tour-t"></h2>
+    <p id="tour-p"></p>
+    <p class="tour-got" id="tour-got" aria-live="polite"></p>
+    <div class="tour-row">
+      <button class="tour-skip" type="button" data-tour="skip">Skip tour</button>
+      <button class="btn" type="button" data-tour="back">Back</button>
+      <button class="btn main" type="button" data-tour="next">Next</button>
+    </div>
+    <p class="sr" id="tour-live" aria-live="polite"></p>
+  </div>
+</div>
 <script type="module" src="app.js"></script>
 </body>
 </html>

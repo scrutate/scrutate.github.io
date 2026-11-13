@@ -81,7 +81,8 @@ memory. `worker.js` adds the one call the shim lacks that scrutate needs (`path_
 Rust's `canonicalize` uses).
 
 - `index.html`, `app.js`: the page; `worker.js`: the engine; `load.js`: the sample, GitHub
-  repositories and local folders; `list.js`: the result list; `code.js`: the file view.
+  repositories and local folders; `list.js`: the result list; `code.js`: the file view;
+  `tour.js`: the guided tour.
 - `vendor/`: `browser_wasi_shim` and the [lezer](https://github.com/lezer-parser) parsers and
   highlighter, the npm packages' `dist` files unchanged, each with its licence.
   `SOURCE.txt` in each folder names the versions.
@@ -89,6 +90,16 @@ Rust's `canonicalize` uses).
   `python3 tools/make_sample.py ../scrutate <commit>`. It stays fixed while the engine follows
   new releases, so the examples on the page keep finding what they show; update it by hand and
   check that every example still answers.
+
+The tour shows what scrutate does that grep cannot, one step at a time, and can be skipped at any
+step. `tour.js` holds its steps as data: the control each step points at, where the answer shows,
+and which of `app.js`'s examples it runs, so a step stays true when the sample changes, and a step
+whose example the loaded code lacks is left out. It starts once, on a first visit to the bare
+playground link, after the first result shows. A link with a search in it never starts it, and
+neither does a visit after it was skipped or finished, which `localStorage` keeps under
+`scrutate-tour`; "Take the tour" in the header starts it again. `app.js` gives it two hooks, its
+examples and a way to run one, and fires `scrutate:shown` on `document` each time a result is on
+the page.
 
 The images in `assets/` are copies of `docs/assets/` in the scrutate repository, where
 `tools/gen_assets.py` writes them; copy them again when they change there.
