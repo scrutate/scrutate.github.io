@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrutate: instant code search and code intelligence in one Rust binary</title>
+<meta name="description" content="Scrutate searches any folder with no index, and indexes a repository for ranked search by meaning or name, definitions, callers, references and the tests a git diff touches. A CLI, an MCP server for AI coding agents, a language server and Python bindings. Open source, MIT OR Apache-2.0.">
+<link rel="canonical" href="https://scrutate.github.io/">
+<link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0c0c0e">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Scrutate">
+<meta property="og:title" content="Scrutate: instant code search and code intelligence">
+<meta property="og:description" content="Search any folder with no index, or index a repository for ranked search, definitions, callers and references. For the terminal, editors and AI coding agents.">
+<meta property="og:url" content="https://scrutate.github.io/">
+<meta property="og:image" content="https://scrutate.github.io/assets/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Scrutate: instant search, no index; code intelligence from an index.">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Scrutate",
+  "url": "https://scrutate.github.io/",
+  "description": "Universal instant code search and persistent code intelligence, in one Rust binary. A CLI, an MCP server for AI coding agents, a language server and Python bindings.",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Linux, Windows",
+  "license": ["https://opensource.org/licenses/MIT", "https://www.apache.org/licenses/LICENSE-2.0"],
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "sameAs": ["https://github.com/scrutate/scrutate"],
+  "author": {"@type": "Person", "name": "Cris Nahine", "url": "https://github.com/crisnahine"}
+}
+</script>
+<style>
+:root {
+  color-scheme: dark;
+  --ink: #0c0c0e;
+  --ink-2: #141417;
+  --line: #2a2a30;
+  --paper: #f2eee3;
+  --muted: #a8a49a;
+  --hl: #d9ff3d;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--ink); color: var(--paper); font: 17px/1.6 var(--sans); }
+a { color: var(--paper); text-decoration-color: var(--hl); text-underline-offset: 3px; }
+a:hover { color: var(--hl); }
+:focus-visible { outline: 2px solid var(--hl); outline-offset: 2px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+header { position: sticky; top: 0; z-index: 1; background: rgba(12, 12, 14, .88); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; text-decoration: none; }
+.brand img { width: 28px; height: 28px; }
+nav { display: flex; gap: 20px; font-size: 15px; }
+nav a { text-decoration: none; color: var(--muted); }
+nav a:hover { color: var(--paper); }
+.hero { padding: 72px 0 40px; text-align: center; }
+.hero .logo { width: min(360px, 80%); height: auto; }
+h1 { font-size: clamp(30px, 5vw, 52px); line-height: 1.12; letter-spacing: -.02em; margin: 28px auto 16px; max-width: 18ch; }
+h1 mark { background: var(--hl); color: var(--ink); padding: 0 .12em; border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.lede { color: var(--muted); font-size: clamp(17px, 2vw, 20px); max-width: 60ch; margin: 0 auto 28px; }
+.cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn { display: inline-block; padding: 11px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; border: 1px solid var(--line); }
+.btn.primary { background: var(--hl); color: var(--ink); border-color: var(--hl); }
+.btn.primary:hover { color: var(--ink); filter: brightness(1.08); }
+.shot { margin: 48px auto 0; max-width: 880px; }
+.shot img { width: 100%; height: auto; display: block; border-radius: 12px; border: 1px solid var(--line); }
+section { padding: 56px 0; border-top: 1px solid var(--line); }
+h2 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -.01em; margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 28px; max-width: 65ch; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.card { background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 22px; }
+.card h3 { margin: 0 0 8px; font-size: 19px; }
+.card p { margin: 0; color: var(--muted); }
+.tag { display: inline-block; font: 600 12px/1 var(--mono); color: var(--ink); background: var(--hl); padding: 5px 7px; border-radius: 4px; margin-bottom: 12px; letter-spacing: .04em; }
+.feats { display: grid; gap: 12px 24px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 0; padding: 0; list-style: none; }
+.feats li { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.feats b { display: block; }
+.feats span { color: var(--muted); font-size: 15px; }
+code { font-family: var(--mono); font-size: .9em; }
+pre { background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; overflow-x: auto; font: 14px/1.7 var(--mono); margin: 0 0 20px; }
+pre .c { color: #7c7a73; }
+h3.label { font-size: 15px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+footer { border-top: 1px solid var(--line); padding: 40px 0 56px; color: var(--muted); font-size: 15px; }
+footer .cols { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+footer h4 { color: var(--paper); margin: 0 0 8px; font-size: 15px; }
+footer ul { list-style: none; margin: 0; padding: 0; }
+footer li { margin: 4px 0; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--paper); }
+.fine { margin-top: 32px; }
+@media (max-width: 640px) {
+  nav a.opt { display: none; }
+  .hero { padding-top: 48px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/logo-mark.svg" alt="">Scrutate</a>
+    <nav aria-label="Main">
+      <a class="opt" href="#engines">Engines</a>
+      <a href="#start">Quick start</a>
+      <a class="opt" href="#install">Install</a>
+      <a href="https://github.com/scrutate/scrutate">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <img class="logo" src="assets/logo.svg" width="434" height="96" alt="Scrutate">
+  <h1>Instant code search and <mark>code intelligence</mark>, in one Rust binary</h1>
+  <p class="lede">Search any folder with no index. Index a repository for ranked search by meaning or name, definitions, callers, references and the tests a git diff touches. From the terminal, your editor or an AI coding agent.</p>
+  <div class="cta">
+    <a class="btn primary" href="#install">Install</a>
+    <a class="btn" href="https://github.com/scrutate/scrutate">View on GitHub</a>
+  </div>
+  <picture class="shot">
+    <source media="(max-width: 600px)" srcset="assets/hero-phone.svg">
+    <img src="assets/hero.svg" width="880" height="586" alt="Four real searches of scrutate's own source run one after another: a literal, any casing, within one edit, and a regex, every match marked with a highlighter.">
+  </picture>
+</div>
+
+<section id="engines">
+  <div class="wrap">
+    <h2>Two engines, one binary</h2>
+    <p class="sub">Each engine works on its own. Use the first on any folder right away, and the second where you want answers about the code itself.</p>
+    <div class="grid">
+      <div class="card">
+        <span class="tag">ENGINE A</span>
+        <h3>Instant search, no index</h3>
+        <p>No index, no parsers, no background process. Literal, regex, identifier in every casing, fuzzy, multiline and inverted matching over every readable file, with <code>.gitignore</code> awareness, parallel traversal and streamed results. Built on the crates ripgrep is assembled from, and tested against ripgrep.</p>
+      </div>
+      <div class="card">
+        <span class="tag">ENGINE B</span>
+        <h3>Code intelligence from an index</h3>
+        <p>A persistent, incremental index: tree-sitter symbols, call edges, imports, a trigram text index, semantic vectors and a learned ranker. Ranked search by meaning, name or identifier; definitions, callers, references, outlines, duplicates, structural queries, and what a git diff touches.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What it does</h2>
+    <p class="sub">One command per job. Every command, option and exit code is in the <a href="https://github.com/scrutate/scrutate/blob/main/docs/CLI.md">CLI reference</a>.</p>
+    <ul class="feats">
+      <li><b>Regex</b><span>Literal, regex in linear time, and PCRE2 (<code>-P</code>).</span></li>
+      <li><b>Any casing</b><span>One spelling finds snake, camel and upper case (<code>--ident</code>).</span></li>
+      <li><b>Fuzzy</b><span>Matches within N edits, also for a regex (<code>--fuzzy</code>).</span></li>
+      <li><b>Archives</b><span>Inside zip and tar files and compressed files (<code>-z</code>).</span></li>
+      <li><b>Ranked search</b><span>By meaning, name or identifier, with a learned ranker (<code>search</code>).</span></li>
+      <li><b>Call graph</b><span>Definitions, callers, callees, outlines, imports (<code>callers</code>).</span></li>
+      <li><b>References</b><span>Each name resolved through imports and scopes (<code>refs</code>).</span></li>
+      <li><b>Duplicates</b><span>Exact and near copies of a function (<code>dupes</code>).</span></li>
+      <li><b>Structure</b><span>tree-sitter queries on the syntax tree (<code>tsquery</code>).</span></li>
+      <li><b>Diff impact</b><span>Changed definitions, their callers, the tests to run (<code>impact</code>).</span></li>
+      <li><b>Kept fresh</b><span>An incremental index that follows edits (<code>watch</code>).</span></li>
+      <li><b>Private</b><span>No network connections. Your code stays on your machine.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <h2>Quick start</h2>
+    <p class="sub">Search right away, then index when you want more.</p>
+    <h3 class="label">Search any folder, no index</h3>
+<pre><code>scrutate grep "refresh_token" .          <span class="c"># instant, ignore-aware search</span>
+scrutate grep --ident refreshToken .     <span class="c"># finds refresh_token, RefreshToken, REFRESH_TOKEN</span>
+scrutate grep --fuzzy=1 "shortest_pth" . <span class="c"># within one edit</span></code></pre>
+    <h3 class="label">Index the repository</h3>
+<pre><code>scrutate index
+scrutate search "where do we renew expired tokens"   <span class="c"># ranked by meaning</span>
+scrutate callers refresh_token                       <span class="c"># who calls it</span>
+scrutate impact --base main...                       <span class="c"># what my diff changes, which tests to run</span></code></pre>
+    <h3 class="label">Give it to an AI coding agent or an editor</h3>
+<pre><code>scrutate setup claude     <span class="c"># or codex, opencode, cursor, gemini: adds the MCP server</span>
+scrutate serve --watch    <span class="c"># run the MCP server yourself, index kept fresh</span>
+scrutate lsp              <span class="c"># language server for editors</span></code></pre>
+    <h3 class="label">From Python</h3>
+<pre><code>import scrutate
+for m in scrutate.grep("TODO", ["."], mode="literal"):   <span class="c"># streamed, GIL released</span>
+    print(m.path, m.line, m.text)</code></pre>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install</h2>
+    <p class="sub">No release archive is published yet. Build from source with Rust 1.91 or newer:</p>
+<pre><code>git clone https://github.com/scrutate/scrutate &amp;&amp; cd scrutate
+cargo build --release -p scrutate --locked   <span class="c"># target/release/scrutate</span></code></pre>
+    <p class="sub">Runs on macOS, Linux and Windows. <a href="https://github.com/scrutate/scrutate/blob/main/docs/INSTALL.md">Install guide</a></p>
+  </div>
+</section>
+
+<section id="measured">
+  <div class="wrap">
+    <h2>Measured, not claimed</h2>
+    <p class="sub">Every speed figure comes from scripts in <code>bench/</code> that you can rerun, with the faster and the slower results both shown.</p>
+    <div class="cta" style="justify-content:flex-start">
+      <a class="btn" href="https://github.com/scrutate/scrutate/blob/main/docs/LEADERBOARD.md">Leaderboard</a>
+      <a class="btn" href="https://github.com/scrutate/scrutate/blob/main/docs/BENCHMARKS.md">Benchmarks</a>
+      <a class="btn" href="https://github.com/scrutate/scrutate/blob/main/docs/QUALITY.md">Ranking quality</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>Documentation</h4>
+        <ul>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/docs/FAQ.md">Questions and answers</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/docs/CLI.md">Command line</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/integrations/mcp/README.md">MCP server</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/docs/ARCHITECTURE.md">Architecture</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/CHANGELOG.md">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/scrutate/scrutate">Source on GitHub</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/issues">Issues</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/CONTRIBUTING.md">Contributing</a></li>
+          <li><a href="https://github.com/scrutate/scrutate/blob/main/docs/SECURITY.md">Security</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Support the work</h4>
+        <ul>
+          <li><a href="https://github.com/sponsors/crisnahine">GitHub Sponsors</a></li>
+          <li><a href="https://buymeacoffee.com/crisnahine">Buy a coffee</a></li>
+          <li><a href="https://github.com/scrutate/scrutate#sponsor-and-hire">Paid support and hire</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="fine">Scrutate is licensed under MIT OR Apache-2.0, at your option. The name and the logo are covered by the <a href="https://github.com/scrutate/scrutate/blob/main/TRADEMARKS.md">trademark policy</a>.</p>
+  </div>
+</footer>
+</body>
+</html>
