@@ -7,7 +7,7 @@ modules, no JavaScript build step and no npm dependencies.
 ## How it is published
 
 `.github/workflows/pages.yml` publishes the site to GitHub Pages (the repository's Pages source is
-"GitHub Actions"). On every push to `main`, on every hour, and when started by hand, it:
+"GitHub Actions"). On every push to `main`, every hour, and when started by hand, it:
 
 1. picks the scrutate to run (`tools/resolve_engine.sh`): the newest scrutate release, or, before
    the first release, the newest `main` commit whose `ci.yml` run passed;
@@ -29,8 +29,8 @@ version, and building it here ties each deploy to one scrutate commit, which `en
 ### By hand
 
 - **Run a particular scrutate**, for a rollback or a test: Actions, "pages", "Run workflow" on
-  `main`, and give a release tag such as `v0.1.0`, or `main`. The next hourly run returns to the newest
-  release, so a rollback that must last is a new scrutate release.
+  `main`, and put a release tag such as `v0.1.0`, or `main`, in the `engine` field. The next hourly
+  run returns to the newest release, so a rollback that must last is a new scrutate release.
 - **The hourly run stopped**: GitHub turns off scheduled workflows in a public repository with no
   activity for 60 days and emails the owner. Turn it back on under Actions, "pages",
   "Enable workflow". Pushes to `main` publish either way.
@@ -43,8 +43,8 @@ version, and building it here ties each deploy to one scrutate commit, which `en
 ## Working on it locally
 
 You need a scrutate build for `wasm32-wasip1`. In a scrutate checkout, with
-[wasi-sdk](https://github.com/WebAssembly/wasi-sdk) unpacked at `$SDK` (the version
-`pages.yml` names):
+[wasi-sdk](https://github.com/WebAssembly/wasi-sdk) unpacked at `$SDK` (the release `pages.yml`
+names in `WASI_SDK`; CI and this build must use the same one):
 
 ```sh
 rustup target add wasm32-wasip1
@@ -53,7 +53,10 @@ CFLAGS_wasm32_wasip1="--sysroot=$SDK/share/wasi-sysroot" \
 cargo build --release -p scrutate --bin scrutate --target wasm32-wasip1 --no-default-features --locked
 ```
 
-Then, in this repository, assemble the site and test it (Node 22.4 or later, and Chrome):
+Then, in this repository, assemble the site and test it (Node 22.4 or later, and Chrome).
+`build_site.sh OUT WASM COMMIT REF` takes the full scrutate commit the engine was built from and
+the ref it belongs to: a release tag such as `v0.1.0`, or `main`. Both go into `engine.json`. OUT
+must be a new or empty folder, or an earlier build, which is replaced.
 
 ```sh
 sh tools/build_site.sh /tmp/site ../scrutate/target/wasm32-wasip1/release/scrutate.wasm \
@@ -62,6 +65,8 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   node tests/smoke.mjs --dir /tmp/site
 ```
 
+`--dir` serves the folder on a free local port. A run takes about 20 seconds and ends with
+`12 passed, 0 failed`; any failure prints the page's own message and exits 1.
 `node --test tests/*.test.mjs` runs the unit tests, which need no engine and no browser.
 `node tests/smoke.mjs --url https://scrutate.github.io` tests the live site the same way. To look
 at the site, serve the assembled folder with any static server, for example
