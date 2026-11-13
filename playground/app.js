@@ -240,7 +240,7 @@ function paintSource(note) {
   $("#src-meta").textContent = files.paths.length ? `${where}, ${plural(files.paths.length, "file")}, ${mb(files.bytes)}` : where;
   const l = files.left;
   const out = l ? (l.cap || 0) : 0;
-  $("#src-note").textContent = note ?? (l && l.truncated ? "GitHub listed only part of this repository: load one folder of it with a .../tree/BRANCH/FOLDER link" : out ? `${plural(out, "file")} left out: the playground holds up to ${num(CAP.files)} files and ${mb(CAP.bytes)}` : l && l.failed ? `${plural(l.failed, "file")} did not download` : "");
+  $("#src-note").textContent = note ?? (l && l.truncated ? `GitHub listed only part of this ${src.sub ? "folder" : "repository"}: load a folder inside it with a .../tree/BRANCH/FOLDER link` : out ? `${plural(out, "file")} left out: the playground holds up to ${num(CAP.files)} files and ${mb(CAP.bytes)}` : l && l.failed ? `${plural(l.failed, "file")} did not download` : "");
 }
 
 async function useSource(next, job) {
@@ -1314,7 +1314,7 @@ paintControls();
 paintSource("Loading the code");
 paintBoot();
 if (src.kind === "github") {
-  $("#gh").value = `${src.owner}/${src.repo}${src.ref ? `@${src.ref}` : ""}`;
+  $("#gh").value = src.sub ? `https://github.com/${src.owner}/${src.repo}/tree/${src.ref || "HEAD"}/${src.sub}` : `${src.owner}/${src.repo}${src.ref ? `@${src.ref}` : ""}`;
   loadRepo({ owner: src.owner, repo: src.repo, ref: src.ref, sub: src.sub }).then(async (ok) => {
     if (ok || files.paths.length) return;
     const why = lastError;

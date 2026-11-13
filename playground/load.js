@@ -64,7 +64,8 @@ export function parseRepo(text) {
 
 export async function github({ owner, repo, ref, sub }, progress, signal) {
   const at = ref || "HEAD";
-  const api = `https://api.github.com/repos/${owner}/${repo}/git/trees/${seg(at)}?recursive=1`;
+  // REF:PATH lists one folder, so a folder of a repository too big to list whole still loads.
+  const api = `https://api.github.com/repos/${owner}/${repo}/git/trees/${seg(at)}${sub ? `:${seg(sub)}` : ""}?recursive=1`;
   let res;
   try {
     res = await fetch(api, { headers: { Accept: "application/vnd.github+json" }, signal });
@@ -76,7 +77,10 @@ export async function github({ owner, repo, ref, sub }, progress, signal) {
     const reset = new Date(Number(res.headers.get("x-ratelimit-reset")) * 1000);
     throw new Error(`GitHub allows 60 requests an hour without signing in, and this network has used them. Try again after ${reset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`);
   }
-  if (res.status === 404 || res.status === 422) throw new Error(ref ? `GitHub has no public repository ${owner}/${repo} with a branch, tag or commit named ${ref}.` : `GitHub has no public repository named ${owner}/${repo}.`);
+  if (res.status === 404 || res.status === 422) {
+    const at = ref ? ` with a branch, tag or commit named ${ref}` : "";
+    throw new Error(sub ? `GitHub has no folder ${sub} in a public repository ${owner}/${repo}${at}.` : `GitHub has no public repository named ${owner}/${repo}${at}.`);
+  }
   if (res.status === 409) throw new Error(`${owner}/${repo} is empty.`);
   if (!res.ok) throw new Error(`GitHub answered HTTP ${res.status} for ${owner}/${repo}.`);
   const t = await res.json();
@@ -84,12 +88,10 @@ export async function github({ owner, repo, ref, sub }, progress, signal) {
   const budget = new Budget();
   const want = [];
   for (const e of t.tree) {
-    if (e.type !== "blob" || !e.path.startsWith(prefix)) continue;
-    const rel = e.path.slice(prefix.length);
-    if (skipPath(rel.split("/"))) continue;
-    if (budget.take(rel, e.size)) want.push([e.path, rel]);
+    if (e.type !== "blob" || skipPath(e.path.split("/"))) continue;
+    if (budget.take(e.path, e.size)) want.push([prefix + e.path, e.path]);
   }
-  if (!want.length && t.truncated) throw new Error(`GitHub listed only part of ${owner}/${repo}${sub ? `, and ${sub} is not in that part` : ""}. Try a folder further down.`);
+  if (!want.length && t.truncated) throw new Error(`GitHub listed only part of ${owner}/${repo}${sub ? `/${sub}` : ""}. Try a folder further down.`);
   if (!want.length) throw new Error(sub ? `${owner}/${repo} has no text files under ${sub}.` : `${owner}/${repo} has no text files the playground can read.`);
   const files = [];
   let done = 0;
