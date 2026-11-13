@@ -1,6 +1,6 @@
 import { VList } from "./list.js";
 import { CodeView, esc, lineHTML, language } from "./code.js";
-import { CAP, ROOT, sample, parseRepo, github, pickFolder, fromInput, fromDrop } from "./load.js";
+import { CAP, ROOT, sample, parseRepo, cleanPath, github, pickFolder, fromInput, fromDrop } from "./load.js";
 
 const $ = (s) => document.querySelector(s);
 const SAMPLE = "samples/scrutate-src.json";
@@ -67,7 +67,7 @@ let src = { kind: "sample" };
   if (/^\d{1,4}$/.test(p.get("n") || "")) S.n = Number(p.get("n"));
   S.open = p.get("open") || "";
   const r = p.get("repo") && parseRepo(p.get("repo"));
-  if (r) src = { kind: "github", ...r, ref: p.get("ref") || r.ref, sub: (p.get("path") || "").replace(/^\/+|\/+$/g, "") || r.sub };
+  if (r) src = { kind: "github", ...r, ref: p.get("ref") || r.ref, sub: cleanPath(p.get("path") || "") || r.sub };
 }
 
 function writeUrl() {

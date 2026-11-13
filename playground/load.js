@@ -52,15 +52,34 @@ export async function sample(url, progress) {
   return { name: s.name, commit: s.commit, files: s.files, bytes, left: null };
 }
 
+// A folder path as a person writes it, without empty segments: "/a//b/" is "a/b".
+export function cleanPath(p) {
+  return p.split("/").filter(Boolean).join("/");
+}
+
 // owner/name, a github.com URL (with /tree/REF/PATH), or git@github.com:owner/name.git.
 export function parseRepo(text) {
-  const s = text.trim().replace(/[?#].*$/, "").replace(/\.git$/, "").replace(/\/+$/, "");
-  let m = s.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:\/(tree|blob)\/([^/]+)(?:\/(.+))?)?(?:[?#].*)?$/i);
-  if (m) m = [m[0], m[1], m[2], m[4], m[3]?.toLowerCase() === "blob" ? (m[5] || "").replace(/\/?[^/]*$/, "") : m[5]];
-  if (!m) m = s.match(/^git@github\.com:([\w.-]+)\/([\w.-]+)$/i);
-  if (!m) m = s.match(/^([\w.-]+)\/([\w.-]+)(?:@([^/\s]+))?$/);
+  const tidy = (t) => t.replace(/\.git$/, "").replace(/\/+$/, "");
+  const s = text.trim();
+  // Only a URL has a query or a fragment to drop; in owner/name@ref a # can be part of the ref.
+  let m = tidy(s.replace(/[?#].*$/, "")).match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:\/(tree|blob)\/([^/]+)(?:\/(.+))?)?$/i);
+  if (m) {
+    const sub = decode(m[5] || "");
+    m = [m[0], m[1], m[2], decode(m[4] || ""), m[3]?.toLowerCase() === "blob" ? sub.replace(/\/?[^/]*$/, "") : sub];
+  }
+  if (!m) m = tidy(s).match(/^git@github\.com:([\w.-]+)\/([\w.-]+)$/i);
+  if (!m) m = tidy(s).match(/^([\w.-]+)\/([\w.-]+)(?:@([^/\s]+))?$/);
   if (!m) return null;
-  return { owner: m[1], repo: m[2], ref: m[3] === "HEAD" ? "" : m[3] || "", sub: (m[4] || "").replace(/^\/+/, "") };
+  return { owner: m[1], repo: m[2], ref: m[3] === "HEAD" ? "" : m[3] || "", sub: cleanPath(m[4] || "") };
+}
+
+// A link's path segments are percent-encoded; one that is not valid encoding is kept as written.
+function decode(t) {
+  try {
+    return decodeURIComponent(t);
+  } catch {
+    return t;
+  }
 }
 
 export async function github({ owner, repo, ref, sub }, progress, signal) {
