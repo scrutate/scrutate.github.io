@@ -65,8 +65,8 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   node tests/smoke.mjs --dir /tmp/site
 ```
 
-`--dir` serves the folder on a free local port. A run takes about 20 seconds and ends with
-`12 passed, 0 failed`; any failure prints the page's own message and exits 1.
+`--dir` serves the folder on a free local port. A run takes about 40 seconds and ends with
+`16 passed, 0 failed`; any failure prints the page's own message and exits 1.
 `node --test tests/*.test.mjs` runs the unit tests, which need no engine and no browser.
 `node tests/smoke.mjs --url https://scrutate.github.io` tests the live site the same way. To look
 at the site, serve the assembled folder with any static server, for example

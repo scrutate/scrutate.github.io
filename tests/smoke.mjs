@@ -1,6 +1,6 @@
 // End-to-end smoke test of the site in headless Chrome: the home page, and the playground's two
-// engines at a desktop and a phone size, with every console error, exception and failed request
-// of the page counted as a failure. The workers report through the page.
+// engines and its tour at a desktop and a phone size, with every console error, exception and
+// failed request of the page counted as a failure. The workers report through the page.
 //
 //   node tests/smoke.mjs --dir _site                      a built site, served here
 //   node tests/smoke.mjs --url https://scrutate.github.io  the live site
@@ -129,6 +129,62 @@ async function checks(b, base, view, ok, fail) {
     const open = await p.eval("document.querySelector('#fpath').textContent");
     if (open !== "No file open") throw new Error(`the file view still shows ${open}`);
     return text;
+  });
+
+  // Every other check opens a link with a search in it, which never starts the tour.
+  await run("the tour starts on a first visit, steps, skips and stays away", async (p) => {
+    const shown = "!document.querySelector('#tour').hidden";
+    const step = () => p.eval("document.querySelector('#tour-n').textContent");
+    const press = (key) => p.eval(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: '${key}', bubbles: true }))`);
+    const click = (sel) => p.eval(`document.querySelector(${JSON.stringify(sel)}).dispatchEvent(new MouseEvent('click', { bubbles: true }))`);
+    // Waits for the step's own answer, then checks the card leaves the control it points at in view.
+    const answered = async () => {
+      await p.until("!/^(Running|Waiting|Loading)/.test(document.querySelector('#tour-got').textContent)", ENGINE_MS);
+      await new Promise((r) => setTimeout(r, 400));
+      const covered = await p.eval(`(() => {
+        const c = document.querySelector('#tour-card').getBoundingClientRect();
+        const [x, y, w, h] = ['x', 'y', 'width', 'height'].map((a) => +document.querySelector('#tour rect').getAttribute(a));
+        return c.left < x + w && x < c.right && c.top < y + h && y < c.bottom;
+      })()`);
+      if (covered) throw new Error(`on step ${await step()} the card covers the control it points at`);
+    };
+    await p.go(`${base}/playground/`);
+    await p.until(shown, ENGINE_MS);
+    await p.until("document.querySelector('#tour-got mark')", ENGINE_MS);
+    await answered();
+    if (!(await p.eval("document.activeElement.dataset.tour === 'next'"))) throw new Error("focus did not move to the card's Next button");
+    await noSideScroll(p);
+    const total = Number((await step()).split(" of ")[1]);
+    // A made-up Enter does not press a button, so the arrow key stands in for it here.
+    await press("ArrowRight");
+    await p.until("document.querySelector('#tour-n').textContent.startsWith('2 of')", 5000);
+    await answered();
+    await click("[data-tour='back']");
+    await p.until("document.querySelector('#tour-n').textContent.startsWith('1 of')", 5000);
+    await press("Escape");
+    await p.until("document.querySelector('#tour').hidden", 5000);
+    if ((await p.eval("localStorage.getItem('scrutate-tour')")) !== "skipped") throw new Error("Esc did not remember the skip");
+
+    await p.go(`${base}/playground/`);
+    await settle(p, /\d+ match(es)? in \d+ of/);
+    await new Promise((r) => setTimeout(r, 1500));
+    if (await p.eval(shown)) throw new Error("the tour started again after it was skipped");
+
+    await click("#tour-btn");
+    await p.until(shown, 5000);
+    await click("#tour path");
+    await p.until("document.querySelector('#tour').hidden", 5000);
+    await click("#tour-btn");
+    await p.until(shown, 5000);
+    for (let k = 1; k <= total; k++) {
+      await p.until(`document.querySelector('#tour-n').textContent.startsWith('${k} of')`, 5000);
+      await answered();
+      await click("[data-tour='next']");
+    }
+    await p.until("document.querySelector('#tour').hidden", 5000);
+    if ((await p.eval("localStorage.getItem('scrutate-tour')")) !== "done") throw new Error("finishing the tour was not remembered");
+    if ((await p.eval("document.activeElement.id")) !== "q") throw new Error("finishing the tour did not put focus in the search box");
+    return `${total} steps`;
   });
 
   await run("a bad regex shows the engine's message", async (p) => {
