@@ -54,6 +54,7 @@ const REPOS = ["BurntSushi/walkdir", "pallets/click", "expressjs/express", "gori
 const K_DEFAULT = 8;
 const S = { c: "grep", q: "", m: "regex", f: 1, i: false, w: false, g: "", k: K_DEFAULT, n: 0, open: "" };
 let src = { kind: "sample" };
+let badRepo = "";
 {
   const p = new URLSearchParams(location.search);
   if (![...p.keys()].length) Object.assign(S, { q: "indexDir", m: "ident" });
@@ -69,6 +70,7 @@ let src = { kind: "sample" };
   S.open = p.get("open") || "";
   const r = p.get("repo") && parseRepo(p.get("repo"));
   if (r) src = { kind: "github", ...r, ref: p.get("ref") || r.ref, sub: cleanPath(p.get("path") || "") || r.sub };
+  else if (p.get("repo")) badRepo = p.get("repo").slice(0, 100);
 }
 
 function writeUrl() {
@@ -1356,5 +1358,9 @@ if (src.kind === "github") {
     src = { kind: "sample" };
     if (await loadSample()) paintSource(`${why ? `${why} ` : ""}Showing the sample instead.`);
   });
-} else loadSample();
+} else {
+  loadSample().then((ok) => {
+    if (ok && badRepo) paintSource(`The link's repo, "${badRepo}", is not a GitHub repository. Showing the sample instead.`);
+  });
+}
 fetchEngine();

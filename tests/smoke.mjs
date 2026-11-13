@@ -227,6 +227,14 @@ async function checks(b, base, view, ok, fail) {
     if (focus !== "q") throw new Error(`a click in the search box ended the tour but focus went to ${focus || "the page"}`);
   });
 
+  await run("a repo link that names no repository says so", async (p) => {
+    await p.go(`${base}/playground/?repo=${encodeURIComponent("not a repo")}&q=indexDir&m=ident`);
+    await settle(p, /\d+ match(es)? in \d+ of/);
+    const note = await p.eval("document.querySelector('#src-note').textContent");
+    if (!/not a GitHub repository/.test(note)) throw new Error(`the page shows the sample with no word about the link: "${note}"`);
+    return note;
+  });
+
   await run("a bad regex shows the engine's message", async (p) => {
     await p.go(`${base}/playground/?q=${encodeURIComponent("(")}&m=regex`);
     await p.until(`${STATS}.classList.contains('err')`, ENGINE_MS);
