@@ -84,6 +84,7 @@ export async function github({ owner, repo, ref, sub }, progress, signal) {
     if (skipPath(rel.split("/"))) continue;
     if (budget.take(rel, e.size)) want.push([e.path, rel]);
   }
+  if (!want.length && t.truncated) throw new Error(`GitHub listed only part of ${owner}/${repo}${sub ? `, and ${sub} is not in that part` : ""}. Try a folder further down.`);
   if (!want.length) throw new Error(sub ? `${owner}/${repo} has no text files under ${sub}.` : `${owner}/${repo} has no text files the playground can read.`);
   const files = [];
   let done = 0;

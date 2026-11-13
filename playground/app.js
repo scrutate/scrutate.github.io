@@ -240,7 +240,7 @@ function paintSource(note) {
   $("#src-meta").textContent = files.paths.length ? `${where}, ${plural(files.paths.length, "file")}, ${mb(files.bytes)}` : where;
   const l = files.left;
   const out = l ? (l.cap || 0) : 0;
-  $("#src-note").textContent = note ?? (out ? `${plural(out, "file")} left out: the playground holds up to ${num(CAP.files)} files and ${mb(CAP.bytes)}` : l && l.failed ? `${plural(l.failed, "file")} did not download` : "");
+  $("#src-note").textContent = note ?? (out ? `${plural(out, "file")} left out: the playground holds up to ${num(CAP.files)} files and ${mb(CAP.bytes)}` : l && l.failed ? `${plural(l.failed, "file")} did not download` : l && l.truncated ? "GitHub listed only part of this repository: load one folder of it with a .../tree/BRANCH/FOLDER link" : "");
 }
 
 async function useSource(next, job) {
@@ -304,6 +304,8 @@ async function useSource(next, job) {
   paintSource();
   if (mine > 1) S.open = "";
   last = null;
+  // The old rows name files of the old tree; the new results replace them.
+  list.set([]);
   code.clear();
   paintFileHead(null);
   paintExamples();

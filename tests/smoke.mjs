@@ -104,9 +104,11 @@ async function checks(b, base, view, ok, fail) {
 
   // Each command reads its own JSON fields, so each one is run once.
   await run("symbol, refs, callees and similar answer", async (p) => {
-    const notes = [];
-    for (const [c, q, re] of [["symbol", "Index.open", /\d+ definitions? in/], ["refs", "query_words", /\d+ uses? of \d+ definitions?/], ["callees", "Index.open", /\d+ in the repository/], ["similar", "FuzzyMatcher.new", /\d+ similar definitions? in/]]) {
-      await p.go(`${base}/playground/?c=${c}&q=${encodeURIComponent(q)}`);
+    await p.go(`${base}/playground/?c=symbol&q=Index.open`);
+    const notes = [await settle(p, /\d+ definitions? in/)];
+    // In the same page, so the index is built once; the query is set before the tab runs it.
+    for (const [c, q, re] of [["refs", "query_words", /\d+ uses? of \d+ definitions?/], ["callees", "Index.open", /\d+ in the repository/], ["similar", "FuzzyMatcher.new", /\d+ similar definitions? in/]]) {
+      await p.eval(`(() => { const q = document.querySelector('#q'); q.value = ${JSON.stringify(q)}; q.dispatchEvent(new Event('input')); document.querySelector('.tab[data-cmd="${c}"]').click(); })()`);
       notes.push(await settle(p, re));
     }
     return notes.join("; ");
